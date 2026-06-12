@@ -136,7 +136,7 @@ PYEND2
   fi
 
   # -- 分支 C: P1 done -> 跑 pipeline
-  if [[ "$phase" == "P1" || "$phase" == "P2" ]]; then
+  if [[ "$phase" == "P1" ]]; then
     if [[ ! -d "$chap_root" ]]; then
       echo "✗ $chap_root 不存在。先让 agent 实现第 1 章。"
       echo "  任务: cd $target/presentation && npm run dev 验证骨架，然后 agent 加章节"
@@ -151,17 +151,36 @@ PYEND2
 
     echo "── 5 步子任务 #4 · 多媒体 ──"
     echo
-    if ! bash "$SKILL_DIR/scripts/chapter-to-video.sh" pipeline "$target" --dry-run; then
+    # 真跑 pipeline（不是 dry-run）。失败就回退到让用户手动重跑
+    if ! bash "$SKILL_DIR/scripts/chapter-to-video.sh" pipeline "$target"; then
+      echo
+      echo "✗ pipeline 失败。可重跑或 rollback 到 P1："
+      echo "  chapter-to-video.sh rollback $target --to=P1 --yes"
       return 1
     fi
+
+    # 推进 phase: P1 -> P2 (media done)
+    python3 - "$state_json" <<'PYEND3'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d['phase'] = 'P2'
+d['phase_status'] = 'done'
+d['next_action'] = '跑 chapter-to-video.sh run (P3 record, /chapter-to-video-record)'
+open(p, 'w').write(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+PYEND3
+    # 自动快照 P2
+    # shellcheck disable=SC1091
+    source "$SKILL_DIR/scripts/commands/_snapshot.sh"
+    local snap
+    snap=$(snapshot_create "$target" "P2") && echo "✓ 快照: $(basename "$snap")"
     echo
-    echo "  (上面是 dry-run 预览。要真跑，去掉 --dry-run)"
-    echo "  正式跑: chapter-to-video.sh pipeline $target"
+    echo "下一步: 跑 /chapter-to-video-record 启动录屏"
     return 0
   fi
 
   # -- 分支 D: P3 done -> 提示录屏
-  if [[ "$phase" == "P3" || "$phase" == "P4" ]]; then
+  if [[ "$phase" == "P2" || "$phase" == "P3" || "$phase" == "P4" ]]; then
     cat <<RECORD
 ✓ 5 步子任务 #4 完成
 

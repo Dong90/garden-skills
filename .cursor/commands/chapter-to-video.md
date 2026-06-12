@@ -9,6 +9,7 @@ description: 书籍章节 → 可录屏视频演示。**本命令已拆成 4 个
 
 | 命令 | 干啥 | 何时用 |
 |---|---|---|
+| **`/chapter-to-video-init`** | 建 my-video/ 脚手架 + 写 P0 快照 | **第一次，先调这个** |
 | **`/chapter-to-video-plan`** | 看当前进度 + 风险点（read-only） | 想动手前先看一眼 |
 | **`/chapter-to-video-run`** | 按 phase 自动跑下一个子任务 | 推进一格 |
 | **`/chapter-to-video-status`** | 看 4 步剧本 + 5 步子任务 + 快照 | 想知道到哪了 |
@@ -19,24 +20,29 @@ description: 书籍章节 → 可录屏视频演示。**本命令已拆成 4 个
 ## 4 步剧本（用户视角）
 
 ```
-plan → run → status → snapshots → rollback
-   ↑      │      │           ↑         ↑
-   │      │      │           │         └ 走错时回退
-   │      │      │           └ 看快照决定回哪
-   │      │      └ 看完整进度
-   │      └ 反复调自动推进 5 步子任务
-   └ read-only
-                ↓
-             record (录屏，最后一步)
+init → plan → run → status → snapshots → rollback
+                                              ↓
+                                            record (录屏)
+   ↑        │      │      │           ↑         ↑
+   │        │      │      │           │         └ 走错时回退
+   │        │      │      │           └ 看快照决定回哪
+   │        │      │      └ 看完整进度
+   │        │      └ 反复调自动推进 5 步子任务
+   │        └ read-only
+   └ 第一次：建脚手架 + P0 快照
 ```
 
 ## 5 步子任务（agent 视角，藏在 `run` 里）
 
-1. **init** — `chapter-to-video.sh <chap> --test`
+1. **init** — 调 `/chapter-to-video-init`（建脚手架 + P0 快照）
 2. **写稿** — Cursor agent 写 `script.md` + `outline.md`
 3. **验收** — `chapter-to-video.sh selftest` + `judge`
 4. **多媒体** — `chapter-to-video.sh pipeline`（audio + image）
 5. **录屏** — dev server + QuickTime（单独命令 `/chapter-to-video-record`）
+
+> **init 单独成命令**（`/chapter-to-video-init`），不再藏在 `run` 里。
+> 之前 `run` 在"无 my-video"分支输出 init bash 提示，
+> 现在 init 是显式第一步斜杠命令。
 
 
 ## 默认配置（适用于 `run` 调起的 init）
@@ -62,8 +68,9 @@ bash skills/web-video-presentation/scripts/chapter-to-video.sh rollback  my-vide
 
 执行前**先读** [`skills/web-video-presentation/references/BOOK-CHAPTER.md`](skills/web-video-presentation/references/BOOK-CHAPTER.md) §1-3 再开工。本 skill 的所有约定见 [`SKILL.md`](skills/web-video-presentation/SKILL.md)。
 
-## 完整 6 命令文件
+## 完整 7 命令文件
 
+- [`chapter-to-video-init.md`](chapter-to-video-init.md) ← **第一步**
 - [`chapter-to-video-plan.md`](chapter-to-video-plan.md)
 - [`chapter-to-video-run.md`](chapter-to-video-run.md)
 - [`chapter-to-video-status.md`](chapter-to-video-status.md)

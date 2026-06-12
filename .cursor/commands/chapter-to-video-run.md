@@ -24,7 +24,7 @@ description: 按当前 phase 自动跑下一个 5 步子任务（init / 写稿 /
 
 | state | 实际文件 | `run` 干啥 |
 |---|---|---|
-| 无 `my-video/` | — | 提示先跑 init（要输入文件） |
+| 无 `my-video/` | — | **调 `/chapter-to-video-init`** 建脚手架 |
 | `phase=P0` | 无 `script.md` | 输出"请让 Cursor agent 写 script.md + outline.md" prompt |
 | `phase=P0` | 有 `script.md` + `outline.md` | 跑 selftest（自动跳 P1） |
 | `phase=P1` | selftest 通过 | 跑 pipeline（如 presentation/ 在；自动跳 P2） |

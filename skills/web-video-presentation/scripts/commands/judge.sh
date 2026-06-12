@@ -174,8 +174,8 @@ print(json.dumps(out, ensure_ascii=False, indent=2))
 " > "$target/.book-video/quality-report.json"
   
   # 写 markdown 报告
-  WVP_MEMORY_DIR="${WVP_MEMORY_DIR:-$HOME/.wvp/memory}" \
-  python3 - "$target/.book-video/quality-report.json" "$target" "$WVP_MEMORY_DIR" <<'PY'
+  local memory_dir="${WVP_MEMORY_DIR:-$HOME/.wvp/memory}"
+  python3 - "$target/.book-video/quality-report.json" "$target" "$memory_dir" <<'PY'
 import sys, json, os
 report_path = sys.argv[1]
 target = sys.argv[2]

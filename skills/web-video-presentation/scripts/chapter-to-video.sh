@@ -36,7 +36,7 @@ set -euo pipefail
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── 子命令路由：status / selftest / pipeline（必须在 arg 解析之前）──
-if [[ "${1:-}" =~ ^(status|selftest|pipeline)$ ]]; then
+if [[ "${1:-}" =~ ^(status|selftest|pipeline|judge|continue|memory|brief|profile|run|snapshot|snapshots|rollback)$ ]]; then
   SUBCMD="$1"; shift
   SUBCMD_FILE="$SKILL_DIR/scripts/commands/$SUBCMD.sh"
   if [[ -f "$SUBCMD_FILE" ]]; then
@@ -50,7 +50,7 @@ if [[ "${1:-}" =~ ^(status|selftest|pipeline)$ ]]; then
       exit 1
     fi
   else
-    echo "✗ 未知子命令: $SUBCMD (status / selftest / pipeline)" >&2
+    echo "✗ 未知子命令: $SUBCMD (status / selftest / pipeline / judge / continue / memory / brief / profile / run / snapshot / snapshots / rollback)" >&2
     exit 1
   fi
 fi
@@ -258,18 +258,34 @@ source "$SKILL_DIR/scripts/commands/brief.sh"
 IFS=" " cmd_brief_write "$OUT" "$PROFILE" $BRIEF_STR
 log "写 brief.md（profile + flag 覆盖）"
 
+# ── phase 标签（给 STATE.md heredoc 用）──
+PHASE="P0"
+PHASE_STATUS="done"
+
 # ── 写 STATE.md（自动跟踪进度，每次 init 覆盖）──
 cat > "$OUT/STATE.md" <<EOF
 # State · $TITLE
 
 > 自动生成 by chapter-to-video.sh — 不要手改，下次 init 会覆盖
 
-## 当前阶段
-- [x] Phase 0 · init（chapter-to-video.sh init）
-- [ ] Phase 1 · 内容（script.md + outline.md）
-- [ ] Phase 2 · 网页（章节实现）
-- [ ] Phase 3 · 音频 + 图片
-- [ ] Phase 4 · 录屏
+## 4 步剧本（用户视角）
+
+- [x] plan   （读 state.json + STATE.md）
+- [ ] run    （按 phase 推进 5 步子任务）
+- [ ] status （看进度）
+- [ ] record （录屏）
+
+## 5 步子任务（agent 视角，藏在 run 里）
+
+- [x] 1. init            （当前：$PHASE, $PHASE_STATUS）
+- [ ] 2. 写稿            （script.md + outline.md）
+- [ ] 3. 验收            （selftest + judge）
+- [ ] 4. 多媒体          （audio + image）
+- [ ] 5. 录屏            （npm run dev + QuickTime）
+
+## 当前 phase
+
+$PHASE · $PHASE_STATUS
 
 ## 配置快照
 - 主题：$THEME
@@ -279,9 +295,14 @@ cat > "$OUT/STATE.md" <<EOF
 - TTS provider：$PROVIDER
 - 图片 provider：$IMG_PROVIDER
 
+## 快照
+
+\`.book-video/snapshots/\` 下，每 phase 完工时自动写一份 tar.gz。
+回退：\`.taiyi/.../chapter-to-video.sh rollback my-video --to=P<n> --yes\`
+
 ## 下一步
-1. 在 Cursor 里输入 /chapter-to-video 让 agent 读 BOOK-CHAPTER.md
-2. 调 agent 生成 script.md 和 outline.md
+1. 在 Cursor 里输入 /chapter-to-video-run 让 agent 推进
+2. 或：调 agent 生成 script.md 和 outline.md
 3. 跑 \`chapter-to-video.sh selftest my-video\` 验 5 层
 4. 调 agent 实现第 1 章
 5. 跑 \`chapter-to-video.sh pipeline my-video\` 一键生成音频+图片
@@ -289,7 +310,7 @@ cat > "$OUT/STATE.md" <<EOF
 
 更新于：$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
-log "写 STATE.md（自动跟踪进度）"
+log "写 STATE.md（4 步剧本 + 5 步子任务 + 快照）"
 
 
 # ── 写 meta.json ──
@@ -337,6 +358,11 @@ os.makedirs(os.path.dirname(path), exist_ok=True)
 open(path, "w").write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
 PY
 log "写 state.json（机器可读）"
+
+# ── 自动快照 P0（init 完工）──
+# shellcheck disable=SC1091
+source "$SKILL_DIR/scripts/commands/_snapshot.sh"
+P0_SNAP=$(snapshot_create "$OUT" "P0") && log "快照 P0: $(basename "$P0_SNAP")"
 
 
 # ── 跑脚手架（除非 --resume 且 presentation/ 已存在）──

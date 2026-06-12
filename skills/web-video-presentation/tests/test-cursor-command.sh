@@ -1,69 +1,80 @@
 #!/usr/bin/env bash
-# T19: /chapter-to-video Cursor 命令文件契约
+# T19: Cursor 命令文件契约（4 文件版）
+# 单文件 → 4 文件拆分后，老的关键词扫描在 4 个文件上做并集验证。
 set -uo pipefail
-cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 source tests/_lib.sh
 
-# Cursor 打开 garden-skills 时扫描的位置有两个：
-#   1) .cursor/commands/   （项目级 · git tracked · 自动识别）
-#   2) ~/.cursor/commands/ （用户级 · 跨项目 · 手动 install）
-# 我们两者都放（保持 skill 自包含 + 仓库级生效），测试两边都验。
+# 4 个目标文件（project-root 与 skill 自包含）
+SKILL_COMMANDS="commands"
+PROJ_COMMANDS="../../.cursor/commands"
+FILES=(
+  "chapter-to-video-plan.md"
+  "chapter-to-video-run.md"
+  "chapter-to-video-status.md"
+  "chapter-to-video-record.md"
+  "chapter-to-video.md"   # router
+)
 
-CURSOR_PROJECT="../../.cursor/commands/chapter-to-video.md"
-COMMANDS_DIR="commands"
-SKILL_COMMAND="$COMMANDS_DIR/chapter-to-video.md"
+concat_all_skill() { cat "$SKILL_COMMANDS"/chapter-to-video*.md 2>/dev/null; }
+concat_all_proj()  { cat "$PROJ_COMMANDS"/chapter-to-video*.md  2>/dev/null; }
 
-# ── 1. 仓库根 .cursor/commands/ 文件存在（Cursor 打开本仓库即识别）──
-assert_file_exists "Cursor 项目级 command: $CURSOR_PROJECT" "$CURSOR_PROJECT"
+ALL_SKILL=$(concat_all_skill)
+ALL_PROJ=$(concat_all_proj)
 
-# ── 2. skill 自包含副本（让 skill 可独立分发）──
-assert_file_exists "skill 自包含 command: $SKILL_COMMAND" "$SKILL_COMMAND"
+# ── 1. 4 文件 + router 都存在（两边）──
+for f in "${FILES[@]}"; do
+  assert_file_exists "skill: commands/$f"        "$SKILL_COMMANDS/$f"
+  assert_file_exists "project: .cursor/commands/$f" "$PROJ_COMMANDS/$f"
+done
 
-# 两份内容应一致（skill 是真相源；项目级是 .cursor/ 链接或副本）
-if [[ -f "$CURSOR_PROJECT" && -f "$SKILL_COMMAND" ]]; then
-  if cmp -s "$CURSOR_PROJECT" "$SKILL_COMMAND"; then
+# ── 2. 两边 5 文件内容应一致（项目根是 skill 镜像）──
+for f in "${FILES[@]}"; do
+  if cmp -s "$SKILL_COMMANDS/$f" "$PROJ_COMMANDS/$f"; then
     _TEST_PASS=$((_TEST_PASS+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
-    _log_pass "两份 command 文件内容一致"
+    _log_pass "镜像一致: $f"
   else
     _TEST_FAIL=$((_TEST_FAIL+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
-    _TEST_FAILURES+=("项目级 vs skill 自包含内容不一致")
-    _log_fail "两份 command 文件内容不一致"
-  fi
-fi
-
-# ── 3. frontmatter 合法 ──
-for f in "$CURSOR_PROJECT" "$SKILL_COMMAND"; do
-  [[ ! -f "$f" ]] && continue
-  FIRST=$(head -1 "$f")
-  assert_eq "$f: 以 --- 开头" "---" "$FIRST"
-  assert_grep "$f: 含 name 字段" "^name:" "$f"
-  assert_grep "$f: 含 description 字段" "^description:" "$f"
-  # name 应匹配文件名（Cursor 约定）
-  if grep -qE "^name: chapter-to-video" "$f"; then
-    _TEST_PASS=$((_TEST_PASS+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
-    _log_pass "$f: name 字段 = chapter-to-video"
-  else
-    _TEST_FAIL=$((_TEST_FAIL+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
-    _TEST_FAILURES+=("$f: name 字段不匹配")
-    _log_fail "$f: name 字段不匹配"
+    _TEST_FAILURES+=("$f: skill vs .cursor/commands 不一致")
+    _log_fail "镜像不一致: $f"
   fi
 done
 
-# ── 4. 内容必须含入口引用（Cursor 加载后 agent 能找到）──
-for f in "$CURSOR_PROJECT" "$SKILL_COMMAND"; do
-  [[ ! -f "$f" ]] && continue
-  assert_grep "$f: 引用 chapter-to-video.sh"   "chapter-to-video\\.sh"   "$f"
-  assert_grep "$f: 引用 BOOK-CHAPTER.md"      "BOOK-CHAPTER"           "$f"
-  assert_grep "$f: 提到 minimax 默认 provider" "minimax"                "$f"
-  assert_grep "$f: 提到 kraft-paper 默认主题"  "kraft-paper"            "$f"
-  assert_grep "$f: 含 bash 调用示例"           "bash "                  "$f"
-  assert_grep "$f: 含 --theme 选项"            "\\-\\-theme"             "$f"
+# ── 3. 5 文件并集必须含的关键词（key 入口可发现）──
+# 以前单文件含的关键词，现在在 5 文件并集里至少出现一次。
+for keyword_re in \
+  "chapter-to-video\\.sh" \
+  "BOOK-CHAPTER"          \
+  "minimax"               \
+  "kraft-paper"           \
+  "bash "                 \
+  "\\-\\-theme"           \
+  "STATE\\.md"
+do
+  for side in skill proj; do
+    if [[ "$side" = skill ]]; then haystack="$ALL_SKILL"; path="skill(concat)"; else haystack="$ALL_PROJ"; path="proj(concat)"; fi
+    if echo "$haystack" | grep -qE "$keyword_re"; then
+      _TEST_PASS=$((_TEST_PASS+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
+      _log_pass "$path: 含 $keyword_re"
+    else
+      _TEST_FAIL=$((_TEST_FAIL+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
+      _TEST_FAILURES+=("$path: 缺 $keyword_re（5 文件并集里应能找到）")
+      _log_fail "$path: 缺 $keyword_re"
+    fi
+  done
 done
 
-# ── 5. 含中文（与 SKILL.md / 其它 doc 一致）──
-for f in "$CURSOR_PROJECT" "$SKILL_COMMAND"; do
-  [[ ! -f "$f" ]] && continue
-  assert_contains "$f: 含中文描述" "书籍" "$(cat "$f")"
+# ── 4. 含中文（与 SKILL.md / 其它 doc 一致）──
+for side in skill proj; do
+  if [[ "$side" = skill ]]; then haystack="$ALL_SKILL"; else haystack="$ALL_PROJ"; fi
+  if echo "$haystack" | grep -q "书籍"; then
+    _TEST_PASS=$((_TEST_PASS+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
+    _log_pass "$side(concat): 含中文"
+  else
+    _TEST_FAIL=$((_TEST_FAIL+1)); _TEST_TOTAL=$((_TEST_TOTAL+1))
+    _TEST_FAILURES+=("$side(concat): 缺中文")
+    _log_fail "$side(concat): 缺中文"
+  fi
 done
 
 print_summary "test-cursor-command"

@@ -12,13 +12,22 @@ description: 书籍章节 → 可录屏视频演示。**本命令已拆成 4 个
 | **`/chapter-to-video-plan`** | 看当前进度 + 风险点（read-only） | 想动手前先看一眼 |
 | **`/chapter-to-video-run`** | 按 phase 自动跑下一个子任务 | 推进一格 |
 | **`/chapter-to-video-status`** | 看 4 步剧本 + 5 步子任务 + 快照 | 想知道到哪了 |
+| **`/chapter-to-video-snapshots`** | 列快照（看能回退到哪些 phase） | 准备回退前 |
+| **`/chapter-to-video-rollback`** | 回退到任意 phase 快照 | 走错时 |
 | **`/chapter-to-video-record`** | 启动 dev server + 浏览器 ?auto=1 + 录屏 | 最后一步 |
 
 ## 4 步剧本（用户视角）
 
 ```
-plan → run → status → record
-         ↑（反复调自动推进 5 步子任务）
+plan → run → status → snapshots → rollback
+   ↑      │      │           ↑         ↑
+   │      │      │           │         └ 走错时回退
+   │      │      │           └ 看快照决定回哪
+   │      │      └ 看完整进度
+   │      └ 反复调自动推进 5 步子任务
+   └ read-only
+                ↓
+             record (录屏，最后一步)
 ```
 
 ## 5 步子任务（agent 视角，藏在 `run` 里）
@@ -53,10 +62,12 @@ bash skills/web-video-presentation/scripts/chapter-to-video.sh rollback  my-vide
 
 执行前**先读** [`skills/web-video-presentation/references/BOOK-CHAPTER.md`](skills/web-video-presentation/references/BOOK-CHAPTER.md) §1-3 再开工。本 skill 的所有约定见 [`SKILL.md`](skills/web-video-presentation/SKILL.md)。
 
-## 完整 4 命令文件
+## 完整 6 命令文件
 
 - [`chapter-to-video-plan.md`](chapter-to-video-plan.md)
 - [`chapter-to-video-run.md`](chapter-to-video-run.md)
 - [`chapter-to-video-status.md`](chapter-to-video-status.md)
+- [`chapter-to-video-snapshots.md`](chapter-to-video-snapshots.md)
+- [`chapter-to-video-rollback.md`](chapter-to-video-rollback.md)
 - [`chapter-to-video-record.md`](chapter-to-video-record.md)
 

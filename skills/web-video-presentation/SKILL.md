@@ -132,7 +132,15 @@ Phase 2.4 的"实现单章"会重复 N 次 —— 每次都要回看核心约束
 |---|---|
 | 原始文章（书面语 / 公众号 / 论文 / 博客） | 一次产出 `script.md` + `outline.md`（1.2），过 Checkpoint Plan |
 | 直接的口播稿 / 视频脚本 | 落盘成 `script.md`，一次产出 `outline.md`（1.2 简化版），过 Checkpoint Plan |
+| **书籍的某一章节**（长篇 / 中篇 / 散文集 / 自传 / 纪实） | 落盘成 `article.md`；**必读 [`references/BOOK-CHAPTER.md`](references/BOOK-CHAPTER.md) §1-3 再开工**；script + outline 自检走 5 层（SCRIPT-STYLE 4 层 + BOOK-CHAPTER §8 第 5 层）；Checkpoint Plan 走「书籍章节精简版」（见下文） |
 | 啥都没有，只说"帮我做个 X 主题的视频" | **反问**：先给一段素材或大纲。Skill 不替用户构思内容 |
+
+> **书籍章节 vs 通用文章的核心差异**（详见 `BOOK-CHAPTER.md`）：
+> 1. 长度常 5000-15000 字 —— 必须先决策"分集 or 拉长"再开工
+> 2. 通用"短句 ≤ 20 字"在描写 / 对白 / 心理三段要分级处理
+> 3. outline 必填新增"场景卡" + "摘句池"字段
+> 4. 主题推荐走 BOOK-CHAPTER §4 矩阵（避开演讲 / 商业气质主题）
+> 5. 节奏按 BOOK-CHAPTER §5 表（文学 200 字/分，不是默认 250）
 
 ### 1.2 一次产出 script.md + outline.md
 
@@ -228,6 +236,32 @@ Phase 2.4 的"实现单章"会重复 N 次 —— 每次都要回看核心约束
 - **主题必须明确**才进入 Phase 2。用户说"主题你帮我选" → 取你推荐的第 1 个，
   **告诉用户你选了什么、为什么**，给反悔机会
 - 模式选定 → 进 Phase 2
+
+---
+
+## Checkpoint Plan（书籍章节精简版 · 2 问）
+
+> 适用条件：用户输入是书籍章节。**5 问 → 2 问**，其它走默认。
+
+**只对齐 2 件事**：
+
+1. **稿子 + outline** 改不改？
+   - 用户可直接编辑 `script.md` / `outline.md`，或口头告诉 agent 改方向
+   - 重点看：场景卡 / 摘句池 / 信息保留度 / 拆集决策
+
+2. **主题选哪个**？
+   - Agent 按 `BOOK-CHAPTER.md` §4 矩阵主动挑 2 个最匹配的：
+     ```
+     ★ <推荐 1：nameZh (id)> — 因为 <bestFor 命中>；<descriptionZh 摘要>
+     ★ <推荐 2>
+     ```
+   - 用户说"你帮我选" → 取推荐 1，**告诉用户你选了什么、为什么**，给反悔机会
+
+**走默认（不问）**：
+
+- 素材：全部 placeholder（agent 在实现时标"本章缺 X 素材"）
+- 开发模式：**A 逐章确认**（书籍章节视觉重，节奏需逐章微调）
+- 集数：按 `BOOK-CHAPTER.md` §1.2 的档位，**> 25 分钟主动问**用户
 
 ---
 
@@ -375,7 +409,7 @@ Phase 2 结束后必须停下来，问用户：
 
 ## Phase 3 —— 音频合成（可选）
 
-详细流程见 [`references/AUDIO.md`](references/AUDIO.md)。简版：
+音频 / 图片详细流程见 [`references/AUDIO.md`](references/AUDIO.md) + [`references/BOOK-CHAPTER.md`](references/BOOK-CHAPTER.md) §7。简版：
 
 ```bash
 cd presentation
@@ -389,6 +423,11 @@ PRESENTATION_TTS=openai npm run synthesize-audio
 
 合成完告诉用户：输出位置 / 总段数 / 哪些段时长异常（太长 = 该 step 拆
 分；太短 = 文案太薄）—— 给最后一次校准节奏的机会。然后进入 Phase 4。
+
+**图片生成（可选，书籍章节强烈推荐）**：见 [`BOOK-CHAPTER.md`](references/BOOK-CHAPTER.md) §7。
+- 章节里维护 `images.ts`（与 `narrations.ts` 同结构）→ `npm run extract-images` → `npm run synthesize-images`
+- 默认 provider = `minimax`（与 TTS 同源 mmx CLI）；换 / 加 provider 见 `scripts/image-providers/README.md`
+- 跳过：`--no-images` 传给 `chapter-to-video.sh`
 
 ---
 

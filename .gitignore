@@ -30,3 +30,7 @@ garden-gpt-image-2/
 .agents/
 
 # temp/
+# Test artifacts (created by tests/)
+skills/*/my-video/
+skills/*/my-video-*/
+skills/*/tests/wvp-test-XXXXXX.*/

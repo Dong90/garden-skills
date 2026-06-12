@@ -45,6 +45,7 @@ list_themes() {
 # ── 解析参数 ──
 TARGET=""
 THEME="$DEFAULT_THEME"
+CHAPTER_FLAG=0
 for arg in "$@"; do
   case "$arg" in
     --list-themes)
@@ -53,6 +54,9 @@ for arg in "$@"; do
       ;;
     --theme=*)
       THEME="${arg#--theme=}"
+      ;;
+    --chapter)               # 书籍章节项目：附带 BOOK-CHAPTER.md
+      CHAPTER_FLAG=1
       ;;
     --*)
       echo "✗ 未知参数: $arg" >&2
@@ -160,6 +164,14 @@ cp "$TEMPLATES/scripts/tts-providers/README.md"   scripts/tts-providers/README.m
 cp "$TEMPLATES/scripts/tts-providers/minimax.sh"  scripts/tts-providers/minimax.sh
 cp "$TEMPLATES/scripts/tts-providers/openai.sh"   scripts/tts-providers/openai.sh
 
+# Image pipeline (extract-images + synthesize-images runner + pluggable
+# image providers under image-providers/). Mirrors the TTS pipeline.
+cp "$TEMPLATES/scripts/synthesize-images.sh"    scripts/synthesize-images.sh
+chmod +x scripts/synthesize-images.sh
+mkdir -p scripts/image-providers
+cp "$TEMPLATES/scripts/image-providers/README.md"   scripts/image-providers/README.md
+cp "$TEMPLATES/scripts/image-providers/minimax.sh"  scripts/image-providers/minimax.sh
+
 # Wire the audio scripts into npm so contributors don't have to remember
 # the exact command. Uses node to merge into the existing package.json.
 node -e '
@@ -168,6 +180,7 @@ const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
 p.scripts = Object.assign({}, p.scripts, {
   "extract-narrations": "tsx scripts/extract-narrations.ts",
   "synthesize-audio":   "bash scripts/synthesize-audio.sh",
+  "synthesize-images":  "bash scripts/synthesize-images.sh",
 });
 fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
 '
@@ -176,6 +189,16 @@ fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
 {
   echo "$THEME"
 } > .theme
+
+# 书籍章节项目：附带 BOOK-CHAPTER.md（agent 必读）
+if [[ "$CHAPTER_FLAG" -eq 1 ]]; then
+  if [[ -f "$SKILL_DIR/references/BOOK-CHAPTER.md" ]]; then
+    cp "$SKILL_DIR/references/BOOK-CHAPTER.md" BOOK-CHAPTER.md
+    echo "▸ 已附带 BOOK-CHAPTER.md（书籍章节特化规则）"
+  else
+    echo "⚠ --chapter 但 references/BOOK-CHAPTER.md 不存在" >&2
+  fi
+fi
 
 # 跑一次 typecheck 确认接线 OK
 echo "▸ 跑 typecheck ..."
@@ -243,3 +266,15 @@ cat <<EOF
 想自创主题，看 $SKILL_DIR/references/THEMES.md。
 
 EOF
+
+# 书籍章节模式额外提示
+if [[ "$CHAPTER_FLAG" -eq 1 ]]; then
+  cat <<EOF
+书籍章节模式额外提示：
+  • 删除演示骨架前**先读** BOOK-CHAPTER.md
+  • 估时 > 25 分钟时考虑拆集（见 BOOK-CHAPTER.md §1.2）
+  • outline 必填：场景卡 + 摘句池
+  • 自检 5 层（SCRIPT-STYLE 4 层 + BOOK-CHAPTER §8 第 5 层）
+
+EOF
+fi

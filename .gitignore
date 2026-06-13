@@ -34,3 +34,6 @@ garden-gpt-image-2/
 skills/*/my-video/
 skills/*/my-video-*/
 skills/*/tests/wvp-test-XXXXXX.*/
+
+# Claude Code local slash-command mirror (auto-generated)
+.claude/

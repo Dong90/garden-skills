@@ -61,7 +61,10 @@ print()
 # 5 步子任务
 script_exists = os.path.exists(f"{root}/script.md")
 outline_exists = os.path.exists(f"{root}/outline.md")
-chap_root = f"{root}/presentation/src/chapters"
+# 双模式：shared/chapters/（v1.3+） + 旧 presentation/src/chapters/ 兜底
+_chap1 = f"{root}/shared/chapters"
+_chap2 = f"{root}/presentation/src/chapters"
+chap_root = _chap1 if os.path.isdir(_chap1) else _chap2
 chap_count = len([d for d in os.listdir(chap_root) if os.path.isdir(f"{chap_root}/{d}")]) if os.path.isdir(chap_root) else 0
 
 init_done = phase in ("P0", "P1", "P2", "P3", "P4") and phase_status == "done"

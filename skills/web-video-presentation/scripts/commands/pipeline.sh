@@ -99,19 +99,35 @@ cmd_pipeline() {
     fi
     echo
   fi
-  
-  # ── 总结 ──
+
+  # ── 5. probe（音频时长 → durationInFrames，Remotion 出片必跑）──
+  if [[ $skip_audio -eq 0 ]]; then
+    total=$((total+1))
+    step=$total
+    title="probe"
+    echo "── $step/$total ── npm run $title (ffprobe → durationInFrames)"
+    if [[ $dry_run -eq 1 ]]; then
+      echo "  (dry-run)"
+      done=$((done+1))
+    elif npm run "$title" 2>&1 | sed 's/^/  /'; then
+      done=$((done+1))
+    else
+      failed=$((failed+1))
+      echo "  ✗ 失败（Vite 模式不致命，Remotion 模式必跑）"
+    fi
+    echo
+  fi
   echo "════════════════════════════════════════"
   echo "  pipeline: $done/$total 步完成，$failed 步失败"
   echo "════════════════════════════════════════"
   echo
-  echo "▸ 下一步："
-  echo "  1. 跑 status 看音频/图片数："
-  echo "     chapter-to-video.sh status $target"
-  echo "  2. 启动 dev server："
-  echo "     cd $proj && npm run dev"
-  echo "  3. 浏览器开 http://localhost:5173/?auto=1"
-  echo "  4. 按 SPACE 启动 + 录屏"
-  
+  echo "▸ 下一步（双模式选一）："
+  echo "  ── A · 互动录屏（Vite 模式）──"
+  echo "     cd $target && npm run dev"
+  echo "     浏览器开 http://localhost:5173/?auto=1 → SPACE → QuickTime/OBS 录屏"
+  echo "  ── B · 离线出片（Remotion 模式）──"
+  echo "     cd $target && npm run render"
+  echo "     输出 out/<episode>.mp4，无需录屏"
+
   [[ $failed -eq 0 ]] && return 0 || return 1
 }

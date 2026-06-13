@@ -44,7 +44,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SEGMENTS="$ROOT/audio-segments.json"
-OUT_DIR="$ROOT/public/audio"
+# 双模式：写 audio/ 到 vite/public/，render-remotion.sh 会同步到 remotion/public/
+if [[ -d "$ROOT/vite/public" ]]; then
+  OUT_DIR="$ROOT/vite/public/audio"
+else
+  OUT_DIR="$ROOT/public/audio"
+fi
 PROVIDERS_DIR="$SCRIPT_DIR/tts-providers"
 
 PROVIDER="${PRESENTATION_TTS:-minimax}"

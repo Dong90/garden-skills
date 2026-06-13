@@ -24,5 +24,10 @@
     "surface": "#1e1e24",
     "text": "#f4f4f5",
     "accent": "#fde047"
+  },
+  "visualAnchors": {
+    "palette": "shell #1a1a1a, surface #1e1e24, text #f4f4f5, accent #fde047",
+    "texture": "matte film grain, low-key cinematic lighting, deep shadows, no neon",
+    "compositionBias": "off-center subject, generous negative space, rule-of-thirds"
   }
 }

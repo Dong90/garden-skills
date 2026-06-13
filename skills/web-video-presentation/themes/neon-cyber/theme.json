@@ -24,5 +24,10 @@
     "surface": "#0a0f1c",
     "text": "#e8f4ff",
     "accent": "#00ffcc"
+  },
+  "visualAnchors": {
+    "palette": "deep navy (#04060f, #0a0f1c) + electric cyan (#00ffcc) + magenta glow (#ff2bd6)",
+    "texture": "subtle scanlines, soft bloom on light sources, clean sharp edges, subtle chromatic aberration",
+    "compositionBias": "centered tech subject, glowing grid background, strong silhouette, cinematic 1.85:1"
   }
 }

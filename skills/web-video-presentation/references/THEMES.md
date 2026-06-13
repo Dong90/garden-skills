@@ -283,8 +283,13 @@ cp -r monochrome-print my-theme
   "preview": {
     "shell": "#080808",
     "surface": "#101010",
-    "text": "#f0f0f0",
+    "text": "#f0f0e0",
     "accent": "#ffd54a"
+  },
+  "visualAnchors": {
+    "palette":         "deep black (#080808) + warm bone (#f0f0e0) + electric yellow accent (#ffd54a)",
+    "texture":         "matte film grain, low-key cinematic lighting, terminal phosphor glow",
+    "compositionBias": "deep shadow, generous negative space, off-center subject"
   }
 }
 ```
@@ -300,6 +305,7 @@ cp -r monochrome-print my-theme
 | `mood` | ✓ | 标签数组 | 模糊匹配用 |
 | `bestFor` | ✓ | 场景数组 | Checkpoint Plan 智能推荐时的命中点 |
 | `preview` | ✓ | 4 色对象 | Checkpoint Plan 列清单时的视觉预览 |
+| `visualAnchors` | **v1.3+ 必填** | `{ palette, texture, compositionBias }` | 图像 prompt 工程：每章图自动注入主题风格——换主题就换图风 |
 
 > **主题不再约束动画选型 / 时长 / 字号 / emoji**。视觉风格由 `tokens.css`
 > 的颜色 / 字体 / 字号 token 决定，动画 / 节奏 / 视觉演示完全交给 chapter

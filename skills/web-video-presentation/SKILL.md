@@ -110,7 +110,7 @@ Phase 2.4 的"实现单章"会重复 N 次 —— 每次都要回看核心约束
 
 | 阶段 | 必读（每次都看） | 一次性看完 / 按需查 |
 |---|---|---|
-| Phase 1.1-1.2 内容编写 | `references/SCRIPT-STYLE.md` + `references/OUTLINE-FORMAT.md` + `article.md`（用户原文，如有） | —— |
+| Phase 1.1-1.2 内容编写 | `references/SCRIPT-STYLE.md` + `references/OUTLINE-FORMAT.md`（含"配图数估算"硬约束）+ `article.md`（用户原文，如有） | —— |
 | **Checkpoint Plan 选主题** | —— | `themes/*/theme.json`（动态读全部，列清单 + `bestFor` 推荐 + `descriptionZh`）；`references/THEMES.md`（用户想了解主题系统时） |
 | Phase 2.1 脚手架 | —— | SKILL.md 本节看一次 |
 | **Phase 2.4 实现单章（×N 次，被 2.2 / 2.3 调用）** | **`references/CHAPTER-CRAFT.md`** 单一入口 —— Part 0 十条原则 / Part 1 开工 5 问 / Part 2 关系→动作决策树 / Part 3 视觉工具箱 / Part 4 时长参考 / Part 5 反 AI 味反模式 / Part 6 代码硬规则（**含 narrations.ts 强制约束**）/ Part 7 完工自检 / Part 8 反馈速查 + 当前主题的 `themes/<id>/theme.json` + 当前章节的 outline.md 段落 + **`article.md` 本章对应段落** + 素材清单 | `references/EXAMPLES/`（结构示意，不是抄袭模板）；`references/THEMES.md` 完整 token 契约 |
@@ -441,6 +441,65 @@ PRESENTATION_TTS=openai npm run synthesize-audio
 | Phase 3 跳过 | 默认 Manual 模式手动点击推进 → 后期任意剪辑工具配音 |
 
 > agent 在 Phase 3 / Checkpoint Audio 后**主动告诉用户**适合的录屏路径。
+
+---
+
+## 双模式架构（v1.3+ · Vite 互动 + Remotion 出片）
+
+> 适用：v1.3 起的脚手架产物（`shared/` + `vite/` + `remotion/` 三子目录布局）
+
+### 两种出片方式
+
+| 模式 | 触发命令 | 适用场景 | 输出 |
+|---|---|---|---|
+| **A · 互动录屏**（保留原 Skill 能力） | `npm run dev` → 浏览器录屏 | 实时调样式 / 互动验收 / 短片 | 浏览器 .mov / .mp4 |
+| **B · Remotion 离线出片**（新增） | `npm run render` | 平台上传 / 拼集 / 长时间视频 | `out/<episode>.mp4` |
+
+**两份产物并行不冲突**——Remotion 走 headless Chrome 独立渲染，Vite dev 在另一端口。代码共用共享层，主题/动画/音频零漂移。
+
+### 项目结构
+
+```
+my-video/
+├── shared/              ← 真相源：章节代码 + 主题 token + 通用组件
+│   ├── components/      ← MaskReveal / FadeIn（受控 progress）
+│   ├── chapters/01-foo/ ← Foo.tsx + .css + narrations.ts
+│   ├── styles/          ← tokens / base / fonts / animations
+│   └── assets/          ← 静态资源（图片）
+├── vite/                ← 模式 A：浏览器互动
+│   ├── src/             ← App / hooks / components / registry
+│   └── public/audio/    ← 合成音频落点
+├── remotion/            ← 模式 B：headless 出片
+│   ├── src/             ← Root / compositions/EpisodeNN.tsx
+│   └── public/audio/    ← render-remotion.sh 同步自 vite/public/audio
+├── scripts/             ← 共享脚本
+│   ├── extract-narrations.ts   ← 扫 shared/chapters → audio-segments.json
+│   ├── probe-audio-durations.ts ← ffprobe → durationInFrames（Remotion 用）
+│   ├── synthesize-audio.sh     ← TTS provider
+│   └── render-remotion.sh      ← 调 npx remotion render
+└── package.json         ← 顶层壳：dev / render / probe / synthesize
+```
+
+### 端到端工作流
+
+```
+1. shared/chapters/<NN>-<id>/<Chapter>.tsx  ← 写章节（双模式通用）
+2. vite/src/registry/chapters.ts            ← 注册
+3. npm run dev                              ← 互动验收 / 调样式
+4. npm run synthesize                       ← TTS 合成音频
+5. npm run probe                            ← ffprobe 自动算帧数
+6. npm run render                           ← 出 .mp4
+```
+
+**双模式共享代码硬约束**见 [`references/REMOTION-MAPPING.md`](references/REMOTION-MAPPING.md) —— 4 条硬规则（无 useState / 无 vite 路径 import / 入场动画 progress 受控 / 不碰音频）+ 5 条验收 checklist。
+
+### 何时用哪种
+
+| 场景 | 推荐 |
+|---|---|
+| **互动 / 调样式 / 短片** | Vite 模式（`npm run dev`） |
+| **平台上传 / 10+ 分钟视频 / 拼多集** | Remotion 模式（`npm run render`） |
+| **既要互动验收也要最终出片** | 双模式并行：先 Vite 调 → 再 Remotion 出 |
 
 ---
 

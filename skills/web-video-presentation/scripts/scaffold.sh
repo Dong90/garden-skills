@@ -92,105 +92,79 @@ if ! command -v npm >/dev/null; then
   exit 1
 fi
 
-echo "▸ 在 $TARGET 创建 Vite + React + TS 项目"
+# ──────────────────────────────────────────────────────────────
+# 双模式脚手架：vite/ + remotion/ + shared/ 三子目录布局
+# ──────────────────────────────────────────────────────────────
+echo "▸ 在 $TARGET 创建双模式项目（Vite 互动 + Remotion 出片 + shared 共享）"
 echo "▸ 使用主题：$THEME"
-npm create vite@latest "$TARGET" -- --template react-ts >/dev/null
 
+mkdir -p "$TARGET"
 cd "$TARGET"
-echo "▸ 安装依赖（可能要等一会）..."
-npm install >/dev/null 2>&1
 
-echo "▸ 安装 tsx（用于 extract-narrations 脚本）..."
-npm install --save-dev tsx >/dev/null 2>&1
+# ── shared/ 共享层（章节代码 + 主题 token + 通用组件）──
+mkdir -p shared/components shared/styles shared/chapters/01-example shared/assets
 
-echo "▸ 用演示骨架替换默认 boilerplate"
+cp -R "$TEMPLATES/shared/components/."   shared/components/
+cp -R "$TEMPLATES/shared/styles/."       shared/styles/
+cp "$THEME_TOKENS"                       shared/styles/tokens.css
+cp -R "$TEMPLATES/shared/chapters/01-example/." shared/chapters/01-example/
 
-# 干掉我们不要的 Vite 默认 boilerplate
-rm -f \
-  src/App.tsx src/App.css \
-  src/main.tsx src/index.css \
-  src/assets/react.svg \
-  public/vite.svg \
-  README.md
-rmdir src/assets 2>/dev/null || true
+# ── vite/ 子项目（互动模式）──
+mkdir -p vite/src/{hooks,components,registry,styles} vite/public
+cp -R "$TEMPLATES/vite/." vite/
+chmod +x vite/node_modules/.bin/* 2>/dev/null || true
 
-# 把脚手架文件拷到项目根
-mkdir -p \
-  src/styles src/hooks src/components src/registry \
-  src/chapters/01-example \
-  public scripts
+# ── remotion/ 子项目（出片模式）──
+mkdir -p remotion/src/{compositions,registry} remotion/public
+cp -R "$TEMPLATES/remotion/." remotion/
 
-cp "$TEMPLATES/vite.config.ts" .
-cp "$TEMPLATES/index.html" .
+# ── scripts/ 共享脚本（extract-narrations / synthesize / probe / render）──
+mkdir -p scripts/tts-providers scripts/image-providers
+cp "$TEMPLATES/scripts/extract-narrations.ts"   scripts/extract-narrations.ts
+cp "$TEMPLATES/scripts/extract-images.ts"       scripts/extract-images.ts
+cp "$TEMPLATES/scripts/probe-audio-durations.ts" scripts/probe-audio-durations.ts
+cp "$TEMPLATES/scripts/synthesize-audio.sh"     scripts/synthesize-audio.sh
+cp "$TEMPLATES/scripts/synthesize-images.sh"    scripts/synthesize-images.sh
+cp "$TEMPLATES/scripts/render-remotion.sh"      scripts/render-remotion.sh
+chmod +x scripts/synthesize-audio.sh scripts/synthesize-images.sh scripts/render-remotion.sh
 
-cp "$TEMPLATES/src/main.tsx" src/main.tsx
-cp "$TEMPLATES/src/App.tsx"  src/App.tsx
-
-# tokens.css 来自所选主题
-cp "$THEME_TOKENS"                          src/styles/tokens.css
-cp "$TEMPLATES/src/styles/base.css"         src/styles/base.css
-cp "$TEMPLATES/src/styles/animations.css"   src/styles/animations.css
-cp "$TEMPLATES/src/styles/fonts.css"        src/styles/fonts.css
-
-cp "$TEMPLATES/src/hooks/useStageScale.ts"   src/hooks/useStageScale.ts
-cp "$TEMPLATES/src/hooks/useStepper.ts"      src/hooks/useStepper.ts
-cp "$TEMPLATES/src/hooks/useAudioPlayer.ts"  src/hooks/useAudioPlayer.ts
-cp "$TEMPLATES/src/hooks/useAutoMode.ts"     src/hooks/useAutoMode.ts
-
-cp "$TEMPLATES/src/components/Stage.tsx"          src/components/Stage.tsx
-cp "$TEMPLATES/src/components/MaskReveal.tsx"     src/components/MaskReveal.tsx
-cp "$TEMPLATES/src/components/ProgressBar.tsx"    src/components/ProgressBar.tsx
-cp "$TEMPLATES/src/components/ProgressBar.css"    src/components/ProgressBar.css
-cp "$TEMPLATES/src/components/AutoStartGate.tsx"  src/components/AutoStartGate.tsx
-cp "$TEMPLATES/src/components/AutoStartGate.css"  src/components/AutoStartGate.css
-cp "$TEMPLATES/src/components/AutoToggle.tsx"     src/components/AutoToggle.tsx
-cp "$TEMPLATES/src/components/AutoToggle.css"     src/components/AutoToggle.css
-
-cp "$TEMPLATES/src/registry/types.ts"    src/registry/types.ts
-cp "$TEMPLATES/src/registry/chapters.ts" src/registry/chapters.ts
-
-cp "$TEMPLATES/src/chapters/01-example/Example.tsx"     src/chapters/01-example/Example.tsx
-cp "$TEMPLATES/src/chapters/01-example/Example.css"     src/chapters/01-example/Example.css
-cp "$TEMPLATES/src/chapters/01-example/narrations.ts"   src/chapters/01-example/narrations.ts
-
-# Audio pipeline scripts (extract-narrations + synthesize-audio runner +
-# pluggable TTS providers under tts-providers/).
-cp "$TEMPLATES/scripts/extract-narrations.ts"  scripts/extract-narrations.ts
-cp "$TEMPLATES/scripts/synthesize-audio.sh"    scripts/synthesize-audio.sh
-chmod +x scripts/synthesize-audio.sh
-
-mkdir -p scripts/tts-providers
 cp "$TEMPLATES/scripts/tts-providers/README.md"   scripts/tts-providers/README.md
 cp "$TEMPLATES/scripts/tts-providers/minimax.sh"  scripts/tts-providers/minimax.sh
 cp "$TEMPLATES/scripts/tts-providers/openai.sh"   scripts/tts-providers/openai.sh
+cp "$TEMPLATES/scripts/image-providers/README.md" scripts/image-providers/README.md
+cp "$TEMPLATES/scripts/image-providers/minimax.sh" scripts/image-providers/minimax.sh
 
-# Image pipeline (extract-images + synthesize-images runner + pluggable
-# image providers under image-providers/). Mirrors the TTS pipeline.
-cp "$TEMPLATES/scripts/synthesize-images.sh"    scripts/synthesize-images.sh
-chmod +x scripts/synthesize-images.sh
-mkdir -p scripts/image-providers
-cp "$TEMPLATES/scripts/image-providers/README.md"   scripts/image-providers/README.md
-cp "$TEMPLATES/scripts/image-providers/minimax.sh"  scripts/image-providers/minimax.sh
-
-# Wire the audio scripts into npm so contributors don't have to remember
-# the exact command. Uses node to merge into the existing package.json.
-node -e '
-const fs = require("fs");
-const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
-p.scripts = Object.assign({}, p.scripts, {
-  "extract-narrations": "tsx scripts/extract-narrations.ts",
-  "synthesize-audio":   "bash scripts/synthesize-audio.sh",
-  "synthesize-images":  "bash scripts/synthesize-images.sh",
-});
-fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
-'
-
-# 留个标记，以后能查这个项目从哪个主题起步的
+# ── 顶层 package.json（壳，scripts 入口）──
+cat > package.json <<'PKGJSON'
 {
-  echo "$THEME"
-} > .theme
+  "name": "video-presentation",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "cd vite && npm run dev",
+    "build": "cd vite && npm run build",
+    "preview": "cd vite && npm run preview",
+    "render": "bash scripts/render-remotion.sh",
+    "render:ep01": "cd remotion && npx remotion render Episode01 out/ep01.mp4",
+    "extract": "tsx scripts/extract-narrations.ts",
+    "extract:images": "tsx scripts/extract-images.ts",
+    "probe": "tsx scripts/probe-audio-durations.ts",
+    "synthesize": "bash scripts/synthesize-audio.sh",
+    "synthesize-images": "bash scripts/synthesize-images.sh",
+    "install:all": "(cd vite && npm install) && (cd remotion && npm install) && npm install -D tsx",
+    "typecheck": "cd vite && npm run typecheck"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}
+PKGJSON
 
-# 书籍章节项目：附带 BOOK-CHAPTER.md（agent 必读）
+# ── 留个标记，记录这个项目从哪个主题起步 ──
+printf '%s\n' "$THEME" > .theme
+
+# ── 书籍章节项目：附带 BOOK-CHAPTER.md ──
 if [[ "$CHAPTER_FLAG" -eq 1 ]]; then
   if [[ -f "$SKILL_DIR/references/BOOK-CHAPTER.md" ]]; then
     cp "$SKILL_DIR/references/BOOK-CHAPTER.md" BOOK-CHAPTER.md
@@ -200,13 +174,15 @@ if [[ "$CHAPTER_FLAG" -eq 1 ]]; then
   fi
 fi
 
-# 跑一次 typecheck 确认接线 OK
-echo "▸ 跑 typecheck ..."
-if npx tsc --noEmit; then
-  echo "✓ typecheck 通过"
-else
-  echo "✗ typecheck 失败 —— 请看上面的错误" >&2
-  exit 1
+# ── 跑 typecheck 确认接线 OK（仅 vite 子项目——依赖没装时不跑）──
+if [[ -d vite/node_modules ]]; then
+  echo "▸ 跑 vite typecheck ..."
+  if (cd vite && npx tsc --noEmit); then
+    echo "✓ vite typecheck 通过"
+  else
+    echo "✗ vite typecheck 失败 —— 请看上面的错误" >&2
+    exit 1
+  fi
 fi
 
 cat <<EOF
@@ -214,56 +190,56 @@ cat <<EOF
 ✓ 完成。下一步：
 
   1. cd $TARGET
-  2. npm run dev      # 默认 http://localhost:5174（被占会自动换端口）
+  2. npm run install:all    # 装 vite/ + remotion/ + tsx 依赖
+  3. npm run dev            # 互动模式：http://localhost:5173
 
 当前主题：${THEME}（见 .theme）
 
-然后：
+项目结构（双模式）：
+  shared/     章节代码 + 主题 token + 通用组件（Vite/Remotion 共用）
+  vite/       互动预览 —— 浏览器点击 / 方向键 / 自动播放
+  remotion/   离线出片 —— npx remotion render → .mp4
+  scripts/    共享脚本（extract / probe / synthesize / render）
 
-  • 点舞台任意位置推进全局 step 计数器。
-  • 鼠标移到底部边缘可显出进度条；鼠标移到右上角可显出播放模式切换。
-  • 把 src/chapters/01-example/ 替换成你自己的章节
-    （流程见 SKILL.md "Phase 2.4 实现单章" —— 每章一次到位完整版本，
-     不分骨架 / 精修两步；动画选型由 chapter agent 按 CHAPTER-CRAFT.md
-     Part 0 原则 7 + Part 1 五问决定）。
-  • 在 src/registry/chapters.ts 注册每个新章节。
-  • **每章必须有 narrations.ts**（与 Example.tsx 同目录），
-    数组长度 = step 数，是音频合成 + Auto 模式的唯一真相源。
-  • 章节改了就 bump src/hooks/useStepper.ts 的 STORAGE_KEY 末尾版本号。
+工作流：
+  1. 在 shared/chapters/<NN>-<id>/ 写章节（一份代码，两个渲染器都用）
+  2. vite/src/registry/chapters.ts 注册新章节
+  3. npm run dev 调样式 + 互动验收
+  4. npm run synthesize 合成音频 → vite/public/audio/<id>/<N>.mp3
+  5. npm run probe 自动算 durationInFrames 回写到 shared/chapters
+  6. npm run render 出 .mp4（out/<episode>.mp4）
 
-录制：
+互动模式（保留原 Skill 全部能力）：
+  • 点舞台任意位置推进全局 step 计数器
+  • 鼠标移到底部边缘可显出进度条；右上角可显播放模式切换
+  • 手动模式：http://localhost:5173
+  • 半自动：URL 加 ?audio=1 — 音频跟 step 切，你手动推进
+  • 全自动录屏：URL 加 ?auto=1 — 按一次 SPACE 启动，整片自动播
+  • 录屏后用 QuickTime / OBS 录制浏览器窗口
 
-  • 手动模式：直接打开 http://localhost:5174（点击 / 方向键推进）
-  • 半自动：URL 加 ?audio=1 — 音频跟 step 切，但你手动推进
-  • 全自动录屏：URL 加 ?auto=1 — 按一次 SPACE 启动，整片自动播 + 推进
-                按 M 键随时切换三种模式。
+出片模式（新增，绕过录屏）：
+  • npm run render         # 渲染所有 Episode
+  • npm run render:ep01    # 渲染指定集
+  • 输出 out/<episode>.mp4，1920×1080 h264，30fps
+  • macOS M 系列用 VideoToolbox 硬编，~5-15 分钟视频约 5-15 分钟渲染
 
-音频合成（可选，录制前做）：
-
-  npm run extract-narrations    # 扫所有章节 narrations.ts → audio-segments.json
-  npm run synthesize-audio      # 默认 minimax provider 合成 → public/audio/<id>/<step>.mp3
-                                # 换 provider：PRESENTATION_TTS=<name> npm run synthesize-audio
-                                # 自定义 / 没装 mmx 见 scripts/tts-providers/README.md
+音频合成：
+  npm run extract          # 扫 shared/chapters → audio-segments.json
+  npm run synthesize       # 默认 minimax provider 合成
+  PRESENTATION_TTS=openai npm run synthesize
+  # 自定义 / 没装 mmx 见 scripts/tts-providers/README.md
 
 写章节时必读（单一入口，路径在 SKILL 仓库内）：
-
   • $SKILL_DIR/references/CHAPTER-CRAFT.md
       Part 0 十条原则 / Part 1 开工 5 问 / Part 2 关系→动作决策树 /
       Part 3 视觉工具箱 / Part 4 时长 / Part 5 反 AI 味反模式 /
       Part 6 代码硬规则 / Part 7 完工自检 / Part 8 反馈速查
   • $SKILL_DIR/themes/$THEME/theme.json
       看 descriptionZh / mood / bestFor —— 参考主题气质
-      （动画 / 时长 / 字号 / emoji 由 chapter agent 在每章自由决定）
+  • $SKILL_DIR/references/REMOTION-MAPPING.md  ← 新增：共享层 .tsx 写法约束
 
-卡壳时可翻：
-
-  • $SKILL_DIR/references/EXAMPLES/
-      完整章节 anchor（钩子型 / 列举型）—— 看"形"，不要照搬
-
-要换一个主题，覆盖 tokens.css 即可：
-  cp $SKILL_DIR/themes/<id>/tokens.css src/styles/tokens.css
-
-想自创主题，看 $SKILL_DIR/references/THEMES.md。
+切换主题（覆盖 shared/styles/tokens.css 即可）：
+  cp $SKILL_DIR/themes/<id>/tokens.css shared/styles/tokens.css
 
 EOF
 
@@ -275,6 +251,7 @@ if [[ "$CHAPTER_FLAG" -eq 1 ]]; then
   • 估时 > 25 分钟时考虑拆集（见 BOOK-CHAPTER.md §1.2）
   • outline 必填：场景卡 + 摘句池
   • 自检 5 层（SCRIPT-STYLE 4 层 + BOOK-CHAPTER §8 第 5 层）
+  • 拆集后：remotion/src/compositions/Episode01.tsx 用 .slice() 切 chapters
 
 EOF
 fi

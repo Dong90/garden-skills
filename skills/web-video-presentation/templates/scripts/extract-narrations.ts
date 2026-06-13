@@ -29,9 +29,25 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, "..");
-const REGISTRY_PATH = resolve(ROOT, "src/registry/chapters.ts");
-const CHAPTERS_DIR = resolve(ROOT, "src/chapters");
+// 双模式项目：registry 在 vite/，但章节代码在 shared/。先看 vite 的，没就兜底。
+const REGISTRY_CANDIDATES = [
+  resolve(ROOT, "vite/src/registry/chapters.ts"),
+  resolve(ROOT, "src/registry/chapters.ts"),
+];
+const CHAPTERS_DIR_CANDIDATES = [
+  resolve(ROOT, "shared/chapters"),
+  resolve(ROOT, "src/chapters"),
+];
 const OUT_PATH = resolve(ROOT, "audio-segments.json");
+
+function pickExisting(candidates: string[]): string {
+  for (const c of candidates) if (existsSync(c)) return c;
+  throw new Error(
+    `找不到 registry/chapters.ts，候选：\n  ${candidates.join("\n  ")}`,
+  );
+}
+const REGISTRY_PATH = pickExisting(REGISTRY_CANDIDATES);
+const CHAPTERS_DIR = pickExisting(CHAPTERS_DIR_CANDIDATES);
 
 interface Segment {
   chapter: string;
@@ -43,35 +59,23 @@ interface Segment {
 /** Parse `src/registry/chapters.ts` to learn chapter id order. */
 async function readChapterOrder(): Promise<{ id: string; folder: string }[]> {
   const src = await readFile(REGISTRY_PATH, "utf8");
-  // Match: id: "..."   AND   from "../chapters/<folder>/narrations"
+  // 双模式项目匹配：@shared（vite 别名）| ../../../shared/chapters | ../chapters（旧 fallback）
   const ids: string[] = [];
-  const folders: Record<string, string> = {};
-
+  const folders: string[] = [];
   for (const m of src.matchAll(/id:\s*["']([^"']+)["']/g)) ids.push(m[1]!);
   for (const m of src.matchAll(
-    /from\s+["']\.\.\/chapters\/([^"'\/]+)\/narrations["']/g,
+    /from\s+["'](?:@shared|(?:\.\.\/)+\s*(?:shared\/)?chapters)\/([^"'\/]+)\/(?:narrations|images)["']/g,
   )) {
-    // We map by import order; pair 1:1 with `ids`. Both orders are the
-    // chapter declaration order in CHAPTERS so they line up.
     const folder = m[1]!;
-    folders[folder] = folder;
+    if (!folders.includes(folder)) folders.push(folder);
   }
 
-  // Map id → folder by reading each chapter's narrations.ts existence.
-  // Folders are typically `<NN>-<id>`; fall back to plain `<id>` if not.
-  const result: { id: string; folder: string }[] = [];
-  for (const id of ids) {
-    const candidates = Object.keys(folders).filter((f) => f.endsWith(`-${id}`));
-    const folder = candidates[0] ?? Object.keys(folders).find((f) => f === id);
-    if (!folder) {
-      throw new Error(
-        `chapter id "${id}" registered but no matching folder found ` +
-          `under src/chapters/. Expected something like NN-${id}/narrations.ts`,
-      );
-    }
-    result.push({ id, folder });
+  if (ids.length !== folders.length) {
+    throw new Error(
+      `chapter registry mismatch: ${ids.length} ids vs ${folders.length} folders`,
+    );
   }
-  return result;
+  return ids.map((id, i) => ({ id, folder: folders[i]! }));
 }
 
 async function loadNarrations(folder: string): Promise<unknown[]> {
@@ -99,23 +103,22 @@ async function main() {
     const arr = await loadNarrations(folder);
     arr.forEach((entry, i) => {
       const step = i + 1;
-      if (typeof entry !== "string") {
+      // 双模式 narrations 元素是 { text, durationInFrames, hint? } 或 string
+      const text = typeof entry === "string" ? entry : (entry as { text: string }).text;
+      if (text == null) {
         throw new Error(
-          `chapter "${id}" step ${step}: narration must be a string ` +
-            `(got ${typeof entry}). The {text, minHoldMs} form was removed; ` +
-            `if your animation is longer than the narration, write longer ` +
-            `narration, split the step, or speed the animation up.`,
+          `chapter "${id}" step ${step}: missing text field. ` +
+            `Expected string or { text, durationInFrames, hint? }`,
         );
       }
-      if (entry.trim() === "") {
-        // Silent step — no TTS needed; runtime falls back to estimate.
+      if (text.trim() === "") {
         silentSteps++;
         return;
       }
       segments.push({
         chapter: id,
         step,
-        text: entry,
+        text,
         audio: `${id}/${step}.mp3`,
       });
     });

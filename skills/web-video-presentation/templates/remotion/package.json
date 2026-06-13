@@ -1,0 +1,23 @@
+{
+  "name": "presentation-remotion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render:ep01": "remotion render Episode01 out/ep01.mp4",
+    "render:ep02": "remotion render Episode02 out/ep02.mp4",
+    "compositions": "remotion compositions",
+    "studio": "remotion studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.476",
+    "remotion": "4.0.476",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "typescript": "5.8.3"
+  }
+}

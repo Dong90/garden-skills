@@ -76,7 +76,9 @@ INITMSG
   outline_exists="no"
   [[ -f "$target/script.md"  ]] && script_exists="yes"
   [[ -f "$target/outline.md" ]] && outline_exists="yes"
-  chap_root="$target/presentation/src/chapters"
+  # 双模式：shared/chapters/（v1.3+） + 旧 presentation/src/chapters/ 兜底
+  chap_root="$target/shared/chapters"
+  [[ ! -d "$chap_root" ]] && chap_root="$target/presentation/src/chapters"
 
   echo "▸ run · $target  (phase=$phase, script=$script_exists, outline=$outline_exists)"
   echo
@@ -130,7 +132,7 @@ PYEND2
     local snap
     snap=$(snapshot_create "$target" "P1") && echo "✓ 快照: $(basename "$snap")"
     echo
-    echo "下一步: 让 Cursor agent 实现第 1 章（presentation/src/chapters/01-xxx/）"
+    echo "下一步: 让 Cursor agent 实现第 1 章（shared/chapters/01-xxx/）"
     echo "  写完后再跑: run $target → 跑 pipeline"
     return 0
   fi

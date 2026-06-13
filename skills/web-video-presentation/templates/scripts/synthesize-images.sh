@@ -11,7 +11,7 @@
 #   WVP_IMG_OUT_ROOT       注入输出根目录（绕开自动推断）
 #   WVP_IMG_NO_DEFAULT_CHECK=1  跳过默认 image_check（测试用）
 # ────────────────────────────────────────────────────────────────────
-set -euo pipefail
+set -eo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,8 +30,8 @@ find_project_root() {
 
 PROJECT_ROOT="${WVP_IMG_PROJECT_ROOT:-$(find_project_root)}"
 
-# ── 默认 provider = minimax ──
-PROVIDER_NAME="minimax"
+# ── 默认 provider = minimax（env var PRESENTATION_IMG 可覆盖）──
+PROVIDER_NAME="${PRESENTATION_IMG:-minimax}"
 PROVIDER_FILE="${WVP_IMG_PROVIDER:-$SCRIPTS_DIR/image-providers/$PROVIDER_NAME.sh}"
 
 # ── 解析参数 ──

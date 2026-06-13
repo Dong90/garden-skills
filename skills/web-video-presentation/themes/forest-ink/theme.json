@@ -24,5 +24,10 @@
     "surface": "#f5f1e8",
     "text": "#1a2e1f",
     "accent": "#4d7a4d"
+  },
+  "visualAnchors": {
+    "palette": "ivory cream (#f5f1e8) + deep forest green (#1a2e1f) + moss accent (#4d7a4d)",
+    "texture": "vintage matte paper grain, soft natural daylight, organic ink bleed, no neon",
+    "compositionBias": "National Geographic framing, off-center subject, generous breathing room, rule-of-thirds"
   }
 }

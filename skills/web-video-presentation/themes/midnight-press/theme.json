@@ -22,5 +22,10 @@
     "surface": "#1a1714",
     "text": "#f5f0e5",
     "accent": "#ff4a2b"
+  },
+  "visualAnchors": {
+    "palette": "warm dark (#0d0b09, #1a1714) + warm bone (#f5f0e5) + single hot accent (#ff4a2b)",
+    "texture": "matte film grain, low-key cinematic lighting, terminal phosphor glow on highlights",
+    "compositionBias": "deep shadow, generous negative space, single subject lit, off-center"
   }
 }

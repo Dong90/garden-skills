@@ -168,18 +168,84 @@ PY
 
 ---
 
-## prompt 字段参考
+## prompt 字段参考（v1.3+ 工程化 schema）
 
 `extract-images.ts` 扫每个章节的 `images.ts`，数组每个元素是：
 
 ```ts
 {
-  prompt:   string,              // 必填
-  size?:    "1920x1080" | ...,   // 默认 "1920x1080"（16:9 舞台）
-  style?:   string,              // provider 自由解释（minimax 透传给 mmx）
-  negative?:string,              // 反向提示词
-  seed?:    number,              // 固定 seed → 可复现
+  step:               number,                                  // 1-indexed，不写按数组下标补
+  subject:            string,                                  // 必填，画面主体（不要写风格/颜色/镜头/反向）
+  composition?:       string,                                  // 镜头/构图/视角
+  style?:             string,                                  // 风格（ink-wash / oil / 3d / anime / ...）
+  palette?:           string,                                  // 调色板描述
+  negative?:          string,                                  // 反向 prompt
+  size?:              "1920x1080" | ...,                       // 默认 1920×1080
+  aspect?:            "16:9" | "4:3" | "1:1" | ...,
+  seed?:              number,                                  // 固定 seed → 可复现
+  imageReference?:    "style-anchors/<name>.png",             // 参考图路径（相对 vite/public/images）
+  referenceStrength?: number,                                  // 0~1，参考图权重（建议 0.55~0.75）
+  out?:               "01-foo/1.png",                          // 输出路径（默认按 folder+step）
 }
 ```
 
-runner 把它序列化成 `image-prompts.json` 的每条记录。
+`extract-images.ts` 把 `subject/composition/style/palette` + 主题的
+`visualAnchors.{palette,texture,compositionBias}` 拼成最终 prompt 字符串。
+**主题锚点自动注入，无需在每章重复写**——换主题就换风格。
+
+### 主题 visualAnchors 是什么
+
+`themes/<id>/theme.json` 新增字段：
+
+```json
+{
+  "visualAnchors": {
+    "palette":         "ivory cream (#f5f1e8) + deep forest green (#1a2e1f) + moss accent (#4d7a4d)",
+    "texture":         "vintage matte paper grain, soft natural daylight, organic ink bleed",
+    "compositionBias": "National Geographic framing, off-center subject, generous breathing room"
+  }
+}
+```
+
+`extract-images.ts` 自动读主题并注入每条 prompt。要关掉（用纯手工 prompt）：`npm run extract-images -- --no-anchor`
+
+---
+
+## 锁风格：首章参考图机制（强烈推荐）
+
+**问题**：每次跑 `synthesize-images` 都是"独立抽卡"——同样的 prompt 跑两次出两张完全不同的图；多张图之间没有视觉一致性。
+
+**解法**：把第一章的某张成功图作为**风格锚点**（reference image），所有后续生成都喂回去——`referenceStrength: 0.55~0.75` 时风格基本锁死。
+
+### 流程
+
+1. **首章 4-8 张候选**：写完第一章 `images.ts`，跑 `npm run synthesize-images -- --force`。
+2. **挑 1 张参考图**：用户/agent 选一张最贴合主题的图，存到：
+   ```
+   shared/assets/style-anchors/<theme-id>-hero.png
+   ```
+3. **回填字段**：把 `imageReference` 字段加到所有章节的 `images.ts`：
+   ```ts
+   {
+     subject: "...",
+     imageReference: "style-anchors/midnight-press-hero.png",  // 相对 vite/public/images
+     referenceStrength: 0.65,
+   }
+   ```
+4. **Re-run**：`npm run synthesize-images` 即可——所有图都从同一张锚点出发。
+
+### 注意事项
+
+- `referenceStrength` 越高越贴近参考图（颜色 / 笔触 / 构图），越低越自由
+  - 0.5-0.65：风格锁，主体变化大（**推荐**）
+  - 0.7-0.85：几乎抄构图
+  - 0.9+：可能直接复刻参考图
+- 每个主题**用不同的 hero.png**——切主题就重选
+- 锚点图**要**符合主题 token 配色；不然后续全跑偏
+
+### 出问题怎么办
+
+- **图风格飘** → `referenceStrength` 提到 0.7+
+- **图太像参考图** → 降到 0.5，或换锚点
+- **图内容死板** → 配合 prompt 调 subject 描述
+- **首张图自己就差** → 别往下走，先手调 prompt + 主题 anchor，重新出

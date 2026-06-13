@@ -223,8 +223,10 @@ if [[ -d "$OUT" && "$RESUME" -eq 0 ]]; then
 fi
 mkdir -p "$OUT"
 
-# ── 落盘 article.md（始终覆盖，保证 input 是真相源）──
-cp "$INPUT" "$OUT/article.md"
+# ── 落盘 article.md（始终覆盖，保证 input 是真相源；同文件 cp 在 BSD 上 exit 1，需特判）──
+if [[ "$(realpath "$INPUT")" != "$(realpath "$OUT/article.md" 2>/dev/null || echo none)" ]]; then
+  cp "$INPUT" "$OUT/article.md"
+fi
 log "落盘 article.md"
 
 # ── 复制特化规则到项目里（提醒 agent 走特化支路）──
@@ -233,9 +235,9 @@ if [[ ! -f "$REFERENCES/BOOK-CHAPTER.md" ]]; then
 else
   cp "$REFERENCES/BOOK-CHAPTER.md"  "$OUT/BOOK-CHAPTER.md" 2>/dev/null || log "⚠ copy BOOK-CHAPTER.md failed"
 fi
-cp "$REFERENCES/SCRIPT-STYLE.md"   "$OUT/SCRIPT-STYLE.md"
-cp "$REFERENCES/OUTLINE-FORMAT.md"  "$OUT/OUTLINE-FORMAT.md"
-cp "$REFERENCES/CHAPTER-CRAFT.md"   "$OUT/CHAPTER-CRAFT.md"
+cp "$REFERENCES/SCRIPT-STYLE.md"   "$OUT/SCRIPT-STYLE.md"   2>/dev/null || true
+cp "$REFERENCES/OUTLINE-FORMAT.md"  "$OUT/OUTLINE-FORMAT.md"  2>/dev/null || true
+cp "$REFERENCES/CHAPTER-CRAFT.md"   "$OUT/CHAPTER-CRAFT.md"   2>/dev/null || true
 log "复制 reference docs 到 $OUT/（agent 必读）"
 
 # ── 取标题 ──
@@ -256,6 +258,9 @@ source "$SKILL_DIR/scripts/commands/profile.sh"
 source "$SKILL_DIR/scripts/commands/brief.sh"
 # shellcheck disable=SC2086
 IFS=" " cmd_brief_write "$OUT" "$PROFILE" $BRIEF_STR
+# bash 5.x bug：IFS=" " 前缀赋值会污染后续 heredoc 解析的 set -u 状态，
+# 显式关 set -u 直到脚本结束（避免每个 heredoc 都踩坑）。
+set +u
 log "写 brief.md（profile + flag 覆盖）"
 
 # ── phase 标签（给 STATE.md heredoc 用）──
@@ -405,9 +410,12 @@ cat <<EOF
   音频（章节实现 + 自检通过后再做）
 ════════════════════════════════════════════════════════════
 
-  cd $OUT/presentation
-  npm run extract-narrations
-  npm run synthesize-audio      # 默认 $PROVIDER provider
+  cd $OUT
+  npm run extract              # 扫 narrations.ts → audio-segments.json
+  npm run synthesize           # TTS 合成 mp3
+  npm run probe                # ffprobe → durationInFrames（Remotion 用）
+  # 双模式 B（Remotion 出片）额外跑：
+  #   npm run render            # 输出 out/<episode>.mp4
 EOF
 
 if [[ "$TEST_MODE" -eq 1 ]]; then

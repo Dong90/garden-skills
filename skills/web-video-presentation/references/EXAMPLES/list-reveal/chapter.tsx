@@ -1,10 +1,8 @@
 // ⚠️ 这是 anchor 参考代码，不会被任何项目编译。
-//    抄到真实项目时（presentation/src/chapters/NN-list/），
-//    把下面两个 import 改成：
-//      import { MaskReveal } from "../../components/MaskReveal";
-//      import type { ChapterStepProps } from "../../registry/types";
-import { MaskReveal } from "../../../templates/src/components/MaskReveal";
-import type { ChapterStepProps } from "../../../templates/src/registry/types";
+//    抄到真实项目时（my-video/shared/chapters/NN-list/），把 import 改成：
+//      import { MaskReveal } from "@shared/components/MaskReveal";
+//    注意 MaskReveal v1.3+ 是**受控版**：传 `progress={0~1}` 而不是 `show`。
+import { MaskReveal } from "../../../templates/shared/components/MaskReveal";
 import "./chapter.css";
 
 /**

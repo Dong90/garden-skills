@@ -36,36 +36,46 @@ EOF
 }
 
 # image_generate <prompt_json> <out_path>
-#   prompt_json: {"prompt":"...","size":"1920x1080","style":"...","negative":"...","seed":N}
+#   prompt_json: {"prompt":"...","size":"1920x1080","style":"...","negative":"...","seed":N,
+#                 "imageReference":"<rel-path>","referenceStrength":0.6}
 #   out_path:    目标 PNG 路径（runner 保证父目录已建）
+#
+# 错误处理：mmx 失败时打印 prompt 摘要到 stderr（不吞错），退出非 0 让 runner 记 failed。
 image_generate() {
   local prompt_json="$1"
   local out="$2"
 
-  # 解析 prompt_json（python 拿字段，避免 jq 依赖；跨平台稳）
-  local prompt size style negative seed
-  read prompt size style negative seed < <(python3 - "$prompt_json" <<'PY'
-import json, sys
-p = json.loads(sys.argv[1])
-print(p.get("prompt", ""),
-      p.get("size", "1920x1080"),
-      p.get("style", ""),
-      p.get("negative", ""),
-      p.get("seed", ""))
-PY
-)
+  # 逐字段用 python 读，避开 bash `read` 的 IFS 切分问题（中文 prompt 必含空格）
+  local prompt size style negative seed image_reference reference_strength
+  prompt=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("prompt",""))' < "$prompt_json")
+  size=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("size","1920x1080"))' < "$prompt_json")
+  style=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("style",""))' < "$prompt_json")
+  negative=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("negative",""))' < "$prompt_json")
+  seed=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("seed",""))' < "$prompt_json")
+  image_reference=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("imageReference",""))' < "$prompt_json")
+  reference_strength=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("referenceStrength",""))' < "$prompt_json")
 
-  # mmx image generate 假定接口（如果你的 mmx 子命令不同，
-  # 改这一行就行；其它 provider 不用动）
   local args=(
     image generate
     --prompt "$prompt"
     --out "$out"
     --size "$size"
   )
-  [[ -n "$style"    ]] && args+=( --style    "$style"    )
-  [[ -n "$negative" ]] && args+=( --negative "$negative" )
-  [[ -n "$seed"     ]] && args+=( --seed     "$seed"     )
+  [[ -n "$style"             ]] && args+=( --style             "$style"             )
+  [[ -n "$negative"          ]] && args+=( --negative          "$negative"          )
+  [[ -n "$seed"              ]] && args+=( --seed              "$seed"              )
+  [[ -n "$image_reference"   ]] && args+=( --image-reference  "$image_reference"  )
+  [[ -n "$reference_strength" ]] && args+=( --reference-strength "$reference_strength" )
 
-  mmx "${args[@]}" >/dev/null 2>&1
+  if ! mmx "${args[@]}"; then
+    # 不吞错 —— 把 prompt 摘要和文件路径打出来，便于诊断
+    local preview="${prompt:0:80}"
+    [[ ${#prompt} -gt 80 ]] && preview="${preview}..."
+    echo "  ✗ mmx 失败" >&2
+    echo "    prompt:    $preview" >&2
+    echo "    style:     ${style:-<none>}" >&2
+    echo "    negative:  ${negative:-<none>}" >&2
+    echo "    out:       $out" >&2
+    return 1
+  fi
 }

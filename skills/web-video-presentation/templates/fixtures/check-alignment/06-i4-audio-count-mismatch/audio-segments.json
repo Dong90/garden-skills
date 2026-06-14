@@ -1,0 +1,4 @@
+[
+  { "chapter": "01-foo", "step": 1, "text": "第一句口播", "audio": "01-foo/1.mp3" },
+  { "chapter": "01-foo", "step": 2, "text": "第二句口播", "audio": "01-foo/2.mp3" }
+]

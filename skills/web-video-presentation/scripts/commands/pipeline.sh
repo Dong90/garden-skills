@@ -28,11 +28,11 @@ cmd_pipeline() {
   local total=0 done=0 failed=0
   local title step
   
-  # ── 1. extract-narrations ──
+  # ── 1. extract ──
   if [[ $skip_audio -eq 0 ]]; then
     total=$((total+1))
     step=$total
-    title="extract-narrations"
+    title="extract"
     echo "── $step/$((step+skip_images*2)) ── npm run $title"
     if [[ $dry_run -eq 1 ]]; then
       echo "  (dry-run)"
@@ -46,11 +46,11 @@ cmd_pipeline() {
     echo
   fi
   
-  # ── 2. synthesize-audio ──
+  # ── 2. synthesize ──
   if [[ $skip_audio -eq 0 ]]; then
     total=$((total+1))
     step=$total
-    title="synthesize-audio"
+    title="synthesize"
     echo "── $step/$step ── npm run $title (provider=${PRESENTATION_TTS:-minimax})"
     if [[ $dry_run -eq 1 ]]; then
       echo "  (dry-run)"
@@ -64,11 +64,11 @@ cmd_pipeline() {
     echo
   fi
   
-  # ── 3. extract-images ──
+  # ── 3. extract:images ──
   if [[ $skip_images -eq 0 ]]; then
     total=$((total+1))
     step=$total
-    title="extract-images"
+    title="extract:images"
     echo "── $step/$step ── npm run $title"
     if [[ $dry_run -eq 1 ]]; then
       echo "  (dry-run)"

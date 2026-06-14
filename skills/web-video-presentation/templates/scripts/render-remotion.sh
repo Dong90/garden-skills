@@ -3,9 +3,11 @@
 # render-remotion.sh —— 调 Remotion 渲染 .mp4。
 #
 # 用法：
-#   bash scripts/render-remotion.sh              # 渲染所有 Composition
-#   bash scripts/render-remotion.sh Episode01    # 渲染指定 Composition
-#   bash scripts/render-remotion.sh --dry        # 列出 Composition 不渲染
+#   bash scripts/render-remotion.sh --density=bilibili   # 默认 B 站档
+#   bash scripts/render-remotion.sh --density=wechat
+#   bash scripts/render-remotion.sh --density=douyin
+#   bash scripts/render-remotion.sh --dry                # 列出 Composition 不渲染
+#   bash scripts/render-remotion.sh --episode=Episode02  # 只渲染指定集
 #
 # 前置：跑过 `npm run probe` 让 shared/chapters 里的 durationInFrames 有值；
 #       没跑过会 warn 但不阻塞（用兜底 90 帧/3s）。
@@ -16,6 +18,32 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REMOTION_DIR="$PROJECT_DIR/remotion"
 OUT_DIR="$PROJECT_DIR/out"
+
+# ── 解析参数 ──
+DENSITY="bilibili"
+LAYOUT="stacked"
+EPISODE_FILTER=""
+DRY_RUN=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --density=*)    DENSITY="${arg#--density=}" ;;
+    --layout=*)     LAYOUT="${arg#--layout=}" ;;
+    --episode=*)    EPISODE_FILTER="${arg#--episode=}" ;;
+    --dry)          DRY_RUN=1 ;;
+    --*)            echo "✗ 未知参数: $arg" >&2; exit 1 ;;
+  esac
+done
+
+case "$DENSITY" in
+  bilibili|wechat|douyin) ;;
+  *) echo "✗ --density 必须是 bilibili / wechat / douyin 之一（收到: $DENSITY）" >&2; exit 1 ;;
+esac
+
+case "$LAYOUT" in
+  stacked|split) ;;
+  *) echo "✗ --layout 必须是 stacked / split 之一（收到: $LAYOUT）" >&2; exit 1 ;;
+esac
 
 # ── 检查 ──
 if [[ ! -d "$REMOTION_DIR" ]]; then
@@ -55,11 +83,9 @@ if [[ ! -d "$REMOTION_DIR/node_modules/@remotion/cli" ]]; then
 fi
 
 # ── 公共音频资源同步到 remotion/public/（Remotion 走 staticFile）──
-# rsync --delete 删 stale；rsync 不可用时退化到 find + cp（但失去 delete 能力，需手动管理）
 sync_audio() {
   local src="$1"
   [[ -d "$src" ]] || return 0
-  # 源目录存在但无 mp3 → 不报错但提示
   if ! find "$src" -maxdepth 2 -name "*.mp3" -print -quit 2>/dev/null | grep -q .; then
     echo "  ⚠ 源目录为空（无 mp3）: $src"
     return 0
@@ -70,7 +96,6 @@ sync_audio() {
       return 1
     fi
   else
-    # cp fallback 不删 stale 文件——提醒用户
     find "$REMOTION_DIR/public/audio" -name "*.mp3" -delete 2>/dev/null || true
     if ! cp -R "$src"/. "$REMOTION_DIR/public/audio/" 2>&1 | sed 's/^/    cp: /'; then
       echo "  ✗ cp 同步失败：$src" >&2
@@ -88,7 +113,7 @@ mkdir -p "$OUT_DIR"
 
 cd "$REMOTION_DIR"
 
-if [[ "${1:-}" == "--dry" ]]; then
+if [[ "$DRY_RUN" == "1" ]]; then
   echo "▸ 注册的 Composition："
   npx remotion compositions
   exit 0
@@ -104,21 +129,21 @@ render_one() {
     --overwrite
 }
 
-if [[ $# -eq 0 ]]; then
-  echo "▸ 渲染所有 Composition..."
-  COMPOSITIONS=$(npx remotion compositions 2>/dev/null | tail -n +2 | awk '{print $1}')
-  if [[ -z "$COMPOSITIONS" ]]; then
-    echo "✗ 找不到任何 Composition" >&2
-    exit 1
-  fi
-  for comp in $COMPOSITIONS; do
-    render_one "$comp"
-  done
-else
-  for comp in "$@"; do
-    render_one "$comp"
-  done
+# 按 density + layout + episode 过滤
+COMPOSITIONS=$(npx remotion compositions 2>/dev/null | tail -n +2 | awk '{print $1}' | grep -- "-${DENSITY}-${LAYOUT}$" || true)
+if [[ -n "$EPISODE_FILTER" ]]; then
+  COMPOSITIONS=$(echo "$COMPOSITIONS" | grep "^${EPISODE_FILTER}" || true)
 fi
+
+if [[ -z "$COMPOSITIONS" ]]; then
+  echo "✗ 找不到任何匹配的 Composition（density=${DENSITY}, layout=${LAYOUT}${EPISODE_FILTER:+, episode=${EPISODE_FILTER}}）" >&2
+  exit 1
+fi
+
+echo "▸ density=${DENSITY}, layout=${LAYOUT}，渲染：$(echo $COMPOSITIONS | tr '\n' ' ')"
+for comp in $COMPOSITIONS; do
+  render_one "$comp"
+done
 
 echo
 echo "✓ 完成。输出目录：$OUT_DIR"

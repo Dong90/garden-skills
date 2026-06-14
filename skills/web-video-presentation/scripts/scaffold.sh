@@ -119,14 +119,23 @@ mkdir -p remotion/src/{compositions,registry} remotion/public
 cp -R "$TEMPLATES/remotion/." remotion/
 
 # ── scripts/ 共享脚本（extract-narrations / synthesize / probe / render）──
-mkdir -p scripts/tts-providers scripts/image-providers
+mkdir -p scripts/tts-providers scripts/image-providers scripts/__tests__/fixtures
 cp "$TEMPLATES/scripts/extract-narrations.ts"   scripts/extract-narrations.ts
 cp "$TEMPLATES/scripts/extract-images.ts"       scripts/extract-images.ts
 cp "$TEMPLATES/scripts/probe-audio-durations.ts" scripts/probe-audio-durations.ts
 cp "$TEMPLATES/scripts/synthesize-audio.sh"     scripts/synthesize-audio.sh
 cp "$TEMPLATES/scripts/synthesize-images.sh"    scripts/synthesize-images.sh
 cp "$TEMPLATES/scripts/render-remotion.sh"      scripts/render-remotion.sh
-chmod +x scripts/synthesize-audio.sh scripts/synthesize-images.sh scripts/render-remotion.sh
+# v1.4+ 新增：三档密度 + LLM 拆句 + minimax 真生
+cp "$TEMPLATES/scripts/render-minimax.sh"       scripts/render-minimax.sh
+cp "$TEMPLATES/scripts/split-narrations.ts"     scripts/split-narrations.ts
+cp "$TEMPLATES/scripts/check-alignment.ts"      scripts/check-alignment.ts
+cp "$TEMPLATES/scripts/check-alignment.README.md" scripts/check-alignment.README.md
+# check-alignment 拆出的辅助模块
+cp "$TEMPLATES/scripts/parser.ts"               scripts/parser.ts
+cp "$TEMPLATES/scripts/parser-utils.ts"         scripts/parser-utils.ts
+cp "$TEMPLATES/scripts/paths.ts"                scripts/paths.ts
+chmod +x scripts/synthesize-audio.sh scripts/synthesize-images.sh scripts/render-remotion.sh scripts/render-minimax.sh
 
 cp "$TEMPLATES/scripts/tts-providers/README.md"   scripts/tts-providers/README.md
 cp "$TEMPLATES/scripts/tts-providers/minimax.sh"  scripts/tts-providers/minimax.sh
@@ -147,16 +156,24 @@ cat > package.json <<'PKGJSON'
     "preview": "cd vite && npm run preview",
     "render": "bash scripts/render-remotion.sh",
     "render:ep01": "cd remotion && npx remotion render Episode01 out/ep01.mp4",
+    "render:minimax": "bash scripts/render-minimax.sh",
+    "split-narrations": "tsx scripts/split-narrations.ts",
+    "check-alignment": "tsx scripts/check-alignment.ts",
+    "check-alignment:strict": "tsx scripts/check-alignment.ts --strict",
+    "check-alignment:dry": "tsx scripts/check-alignment.ts --dry-run",
+    "test": "vitest run",
+    "test:check-alignment": "vitest run scripts/__tests__/check-alignment.test.ts",
     "extract": "tsx scripts/extract-narrations.ts",
     "extract:images": "tsx scripts/extract-images.ts",
     "probe": "tsx scripts/probe-audio-durations.ts",
     "synthesize": "bash scripts/synthesize-audio.sh",
     "synthesize-images": "bash scripts/synthesize-images.sh",
-    "install:all": "(cd vite && npm install) && (cd remotion && npm install) && npm install -D tsx",
+    "install:all": "(cd vite && npm install) && (cd remotion && npm install) && npm install -D tsx vitest",
     "typecheck": "cd vite && npm run typecheck"
   },
   "devDependencies": {
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0"
   }
 }
 PKGJSON
@@ -222,6 +239,26 @@ cat <<EOF
   • npm run render:ep01    # 渲染指定集
   • 输出 out/<episode>.mp4，1920×1080 h264，30fps
   • macOS M 系列用 VideoToolbox 硬编，~5-15 分钟视频约 5-15 分钟渲染
+  • v1.4+ 三档密度：--density=bilibili|wechat|douyin
+  • v1.4+ 两种布局：--layout=stacked|split
+  • 例子：npm run render -- --density=douyin --layout=split
+
+真生视频（v1.4+ C 模式）：
+  • npm run render:minimax -- --chapter-id=99-demo --max=3
+  • 调 mmx-cli 真生（需 pip install minimax-cli + mmx 在 PATH）
+  • 每段 10s，最多 3 段，输出 out/minimax/Episode01-bilibili-1.mp4
+  • prompt 自动从 images.ts 抽 subject + composition + style + palette
+  • 可在 shared/chapters/<id>/prompt-template.txt 写自定义模板
+
+LLM 拆句（v1.4+）：
+  • ANTHROPIC_API_KEY=sk-... npm run split-narrations -- \
+      --input=script.md --output=shared/chapters/01-foo/narrations.ts --chapter=01-foo
+  • 每 step 8-15 字 + 视觉锚点 hint（与 check-alignment HINT 校验对齐）
+
+跨管道校验（v1.4+）：
+  • npm run check-alignment         # I1~I4 + HINT 校验
+  • npm run check-alignment:strict  # WARN 升级为 ERROR
+  • npm run check-alignment -- --dry-run  # 报错但不 exit 1
 
 音频合成：
   npm run extract          # 扫 shared/chapters → audio-segments.json

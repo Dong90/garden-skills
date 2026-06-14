@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-06-13T13:37:03.037Z",
+  "chapters": 1,
+  "errors": [
+    {
+      "chapter": "01-example",
+      "code": "I1",
+      "msg": "tsx 分支数 (最大 step === 1) + 1 = 2 ≠ narrations.length (3)",
+      "fix": "→ 在 Example.tsx 补 step === 2 分支，或删 narrations.ts 里多余的 step",
+      "file": "shared/chapters/01-example/Example.tsx",
+      "line": 64
+    },
+    {
+      "chapter": "01-example",
+      "code": "I1",
+      "msg": "缺少 step === 2 分支（narrations[2] 存在但 tsx 没处理）",
+      "fix": "→ 在 Example.tsx 加 `if (step === 2) { ... }` 分支",
+      "file": "shared/chapters/01-example/Example.tsx"
+    }
+  ],
+  "warnings": [],
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "strict": false,
+    "dryRun": false
+  }
+}

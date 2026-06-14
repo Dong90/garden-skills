@@ -18,5 +18,4 @@ export interface Step {
 export const narrations: Step[] = [
   { text: "这是第一步的开场白。", durationInFrames: 0, hint: "hook" },
   { text: "接下来讲第二个要点。", durationInFrames: 0, hint: "list" },
-  { text: "最后一段收尾。",       durationInFrames: 0, hint: "close" },
 ];

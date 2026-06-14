@@ -37,3 +37,9 @@ skills/*/tests/wvp-test-XXXXXX.*/
 
 # Claude Code local slash-command mirror (auto-generated)
 .claude/
+my-video/
+test-out/
+tmp/
+image_001.jpg
+Users/
+.cursor/

@@ -76,9 +76,11 @@ INITMSG
   outline_exists="no"
   [[ -f "$target/script.md"  ]] && script_exists="yes"
   [[ -f "$target/outline.md" ]] && outline_exists="yes"
-  # 双模式：shared/chapters/（v1.3+） + 旧 presentation/src/chapters/ 兜底
-  chap_root="$target/shared/chapters"
-  [[ ! -d "$chap_root" ]] && chap_root="$target/presentation/src/chapters"
+  # 双模式：shared 放 presentation 下的 v1.3+ 架构（my-video/presentation/shared/chapters/）
+  # 兜底旧架构：my-video/shared/chapters/ 或 my-video/presentation/src/chapters/
+  chap_root="$target/presentation/shared/chapters"
+  if [[ ! -d "$chap_root" ]]; then chap_root="$target/shared/chapters"; fi
+  if [[ ! -d "$chap_root" ]]; then chap_root="$target/presentation/src/chapters"; fi
 
   echo "▸ run · $target  (phase=$phase, script=$script_exists, outline=$outline_exists)"
   echo

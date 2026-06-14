@@ -170,6 +170,120 @@ Phase 2.4 的"实现单章"会重复 N 次 —— 每次都要回看核心约束
 对 `script.md` / `outline.md` 执行（优先 Agent Teams → subAgent → 自检），
 按结论修复完成后再进入 Checkpoint Plan。
 
+#### 跨管道对齐校验（check-alignment · v1.3+）
+
+Phase 1.2 写完 + 章节代码起手前，**必须**跑 `npm run check-alignment`。
+它校验 4 条不变式（见 [`templates/scripts/check-alignment.README.md`](templates/scripts/check-alignment.README.md)）：
+
+- I1: narrations.length == 章节 .tsx 里最大 step + 1（视频节拍对得上口播）
+- I2: images.ts step 合法且不重复（图跟口播 step 对得上）
+- I3: tsx 引图 ⊆ images.ts step 集合（render 不 404）
+- I4: audio-segments 数 == narrations 非空 text 数（合成不漏段）
+
+闸门位置：
+
+```
+extract-narrations → extract-images → check-alignment → synthesize → probe → render
+                            ↑
+                       任一 ERROR 即阻塞（--dry-run 改 warn-only）
+```
+
+hint 字段（口播 → 画面锚点）默认 warn，传 `--strict` 升级为 error。
+
+---
+
+## 三档密度（render 时选档 · v1.4+）
+
+**目的**：同一份 `narrations.ts` 出 B 站 / 视频号 / 抖音三档视频，密度自适应。
+
+### 三档定义
+
+| 档位 | 一屏 = N 步 | 1 分钟屏数 | 1 分钟图数 | 节奏 |
+|---|---|---|---|---|
+| **bilibili** | 3 | ~10 | ~10 | 慢（深度解说） |
+| **wechat** | 2 | ~12-15 | ~12-15 | 中（视频号 / 小红书） |
+| **douyin** | 1 | ~20-30 | ~20-30 | 快（抖音 / 爽文） |
+
+**屏内合并规则**：同位置轮换。屏内 N 个 step 共享一块屏幕，每步占自己的时段（绝对定位），不重叠播放。
+
+### 写稿铁律
+
+**每句控制在 8-15 字（中文 2-3 秒口播）**——三档通用的甜蜜点：
+
+```
+差（>20 字）：
+"今天我们来聊一本书的故事，这本书讲述了一个发生在 1920 年代巴黎的故事..."
+
+好（8-15 字）：
+{ text: "今天讲一本书。", hint: "开场" }
+{ text: "1920 年代巴黎。", hint: "时间" }
+{ text: "一个爱情故事。", hint: "主题" }
+```
+
+### CLI 用法
+
+```bash
+# 默认 B 站档（向后兼容）
+npm run render
+
+# 显式选档
+npm run render -- --density=bilibili
+npm run render -- --density=wechat
+npm run render -- --density=douyin
+
+# 选档 + 选集
+npm run render -- --density=douyin --episode=Episode02
+
+# 输出文件名带 density 后缀
+out/
+├── Episode01-bilibili.mp4
+├── Episode01-wechat.mp4
+└── Episode01-douyin.mp4
+```
+
+### 自动拆句辅助
+
+```bash
+npm run extract-narrations -- --auto-split
+```
+
+按句号/问号/感叹号/分号把长口播拆成多个 step（8-15 字/段），帮作者快速从"段落稿"转"细粒度 step"。
+
+### I1~I4 不变式仍成立
+
+- I1: narrations.length vs tsx step 索引（数据层不变）
+- I2/I3: images.ts（每 step 1 张图，1:1 满配推荐）
+- I4: audio-segments（不变）
+
+**推荐**：images 数量 = narrations 数量（1:1 满配）。三档都按这个走最自然。
+
+### 何时用哪档
+
+| 平台 | 推荐档位 | 理由 |
+|---|---|---|
+| B 站长视频 / YouTube 深度解说 | bilibili | 节奏慢，留白多 |
+| 视频号 / 小红书视频 | wechat | 中等节奏 |
+| 抖音 / 快手 / TikTok | douyin | 快节奏高密度 |
+| 书籍推文 / 爽文号 | douyin | 图文切得快 |
+| 书评 / 文化号 | wechat | 中速 |
+
+### 自动分句：script.md → narrations.ts（LLM）
+
+写完整口播稿到 `script.md`（粗粒度，任意长度），调 LLM 拆成细粒度 step：
+
+```bash
+ANTHROPIC_API_KEY=sk-... npm run split-narrations -- \
+  --input=script.md \
+  --output=shared/chapters/01-foo/narrations.ts \
+  --chapter=01-foo
+```
+
+可选：
+- `--hint-style=visual|keyword|concise`  默认 visual（视觉锚点，对齐 check-alignment 的 HINT）
+- `--model=claude-haiku-4-5`               默认 haiku（便宜够用，分句不需要 opus）
+
+输出 `narrations.ts` 直接可被 `npm run check-alignment` 校验。**不实现离线规则模式**（中文语义分句必须 LLM，规则引擎易坏）。
+
 ---
 
 ## Checkpoint Plan —— 5 件事一次对齐（**硬节点**）
@@ -444,18 +558,42 @@ PRESENTATION_TTS=openai npm run synthesize-audio
 
 ---
 
-## 双模式架构（v1.3+ · Vite 互动 + Remotion 出片）
+## 三模式架构（v1.4+ · Vite 互动 + Remotion 离屏 + minimax 真生）
 
-> 适用：v1.3 起的脚手架产物（`shared/` + `vite/` + `remotion/` 三子目录布局）
+> 适用：v1.4 起的脚手架产物
 
-### 两种出片方式
+### 三种出片方式
 
 | 模式 | 触发命令 | 适用场景 | 输出 |
 |---|---|---|---|
 | **A · 互动录屏**（保留原 Skill 能力） | `npm run dev` → 浏览器录屏 | 实时调样式 / 互动验收 / 短片 | 浏览器 .mov / .mp4 |
-| **B · Remotion 离线出片**（新增） | `npm run render` | 平台上传 / 拼集 / 长时间视频 | `out/<episode>.mp4` |
+| **B · Remotion 离线出片** | `npm run render -- --density=X` | 平台上传 / 拼集 / 长时间视频 / 多档通用 | `out/EpisodeNN-density-layout.mp4` |
+| **C · minimax 真生视频**（v1.4 新增） | `npm run render:minimax -- --max=N` | 平台直传 / 抖音档 / AI 真生视频 | `out/minimax/EpisodeNN-density-N.mp4` |
 
-**两份产物并行不冲突**——Remotion 走 headless Chrome 独立渲染，Vite dev 在另一端口。代码共用共享层，主题/动画/音频零漂移。
+**三份产物并行不冲突**——Remotion 走 headless Chrome，minimax 走 mmx-cli API，Vite dev 在另一端口。代码共用 `shared/` 层，主题/动画/音频零漂移。
+
+### minimax 模式细节
+
+- **每段 10 秒**，**最多 3 段**（成本控制）
+- **prompt 来源**：自动从 `shared/chapters/<id>/images.ts` 的 `subject` 字段拼成
+  - 段 1 = images[0].subject
+  - 段 2 = images[1].subject
+  - 段 3 = images[2].subject
+  - 不足 3 段用 generic 描述补："a cinematic 10s video segment continuing the visual story"
+- **前置**：`mmx-cli` 在 PATH（`pip install minimax-cli`）
+- **命名**：`out/minimax/Episode01-bilibili-1.mp4` 等
+- **不调 TTS**——minimax 视频自带音轨（或后期配音）
+
+```bash
+# 默认出 3 段
+npm run render:minimax -- --episode=Episode01 --density=bilibili
+
+# 只出 1 段（成本最低）
+npm run render:minimax -- --max=1
+
+# 看 prompt 不调 API
+npm run render:minimax -- --dry
+```
 
 ### 项目结构
 
@@ -463,21 +601,24 @@ PRESENTATION_TTS=openai npm run synthesize-audio
 my-video/
 ├── shared/              ← 真相源：章节代码 + 主题 token + 通用组件
 │   ├── components/      ← MaskReveal / FadeIn（受控 progress）
-│   ├── chapters/01-foo/ ← Foo.tsx + .css + narrations.ts
+│   ├── chapters/01-foo/ ← Foo.tsx + .css + narrations.ts + images.ts
 │   ├── styles/          ← tokens / base / fonts / animations
 │   └── assets/          ← 静态资源（图片）
 ├── vite/                ← 模式 A：浏览器互动
 │   ├── src/             ← App / hooks / components / registry
 │   └── public/audio/    ← 合成音频落点
 ├── remotion/            ← 模式 B：headless 出片
-│   ├── src/             ← Root / compositions/EpisodeNN.tsx
+│   ├── src/             ← Root + Episode（密度 + 布局参数化）
 │   └── public/audio/    ← render-remotion.sh 同步自 vite/public/audio
 ├── scripts/             ← 共享脚本
 │   ├── extract-narrations.ts   ← 扫 shared/chapters → audio-segments.json
-│   ├── probe-audio-durations.ts ← ffprobe → durationInFrames（Remotion 用）
+│   ├── split-narrations.ts     ← LLM 拆句（粗口播 → 细 step）
+│   ├── probe-audio-durations.ts ← ffprobe → durationInFrames
 │   ├── synthesize-audio.sh     ← TTS provider
-│   └── render-remotion.sh      ← 调 npx remotion render
-└── package.json         ← 顶层壳：dev / render / probe / synthesize
+│   ├── render-remotion.sh      ← 模式 B：调 npx remotion render
+│   ├── render-minimax.sh       ← 模式 C：调 mmx-cli 真生
+│   └── check-alignment.ts      ← I1~I4 跨管道校验
+└── package.json         ← 顶层壳：dev / render / render:minimax / split / probe
 ```
 
 ### 端到端工作流

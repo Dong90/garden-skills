@@ -36,7 +36,7 @@ set -euo pipefail
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── 子命令路由：status / selftest / pipeline（必须在 arg 解析之前）──
-if [[ "${1:-}" =~ ^(status|selftest|pipeline|judge|continue|memory|brief|profile|run|snapshot|snapshots|rollback)$ ]]; then
+if [[ "${1:-}" =~ ^(status|selftest|pipeline|judge|continue|memory|brief|profile|run|snapshot|snapshots|rollback|minimax)$ ]]; then
   SUBCMD="$1"; shift
   SUBCMD_FILE="$SKILL_DIR/scripts/commands/$SUBCMD.sh"
   if [[ -f "$SUBCMD_FILE" ]]; then
@@ -50,7 +50,7 @@ if [[ "${1:-}" =~ ^(status|selftest|pipeline|judge|continue|memory|brief|profile
       exit 1
     fi
   else
-    echo "✗ 未知子命令: $SUBCMD (status / selftest / pipeline / judge / continue / memory / brief / profile / run / snapshot / snapshots / rollback)" >&2
+    echo "✗ 未知子命令: $SUBCMD (status / selftest / pipeline / judge / continue / memory / brief / profile / run / snapshot / snapshots / rollback / minimax)" >&2
     exit 1
   fi
 fi
@@ -139,9 +139,9 @@ while [[ $# -gt 0 ]]; do
     --visual)             shift; BRIEF_VISUAL="$1" ;;
     --禁忌=*)             BRIEF_TABOO="${1#--禁忌=}" ;;
     --禁忌)               shift; BRIEF_TABOO="$1" ;;
-    -)                    INPUT="-" ;;
+    -)                    INPUT="-"; ORIGINAL_INPUT="-" ;;
     -*)                   die "未知参数: $1" ;;
-    *)                    [[ -z "$INPUT" ]] && INPUT="$1" || die "只能指定一个输入文件" ;;
+    *)                    [[ -z "$INPUT" ]] && { INPUT="$1"; ORIGINAL_INPUT="$1"; } || die "只能指定一个输入文件" ;;
   esac
   shift
 done
@@ -242,8 +242,20 @@ log "复制 reference docs 到 $OUT/（agent 必读）"
 
 # ── 取标题 ──
 if [[ -z "$TITLE" ]]; then
-  TITLE=$(grep -m1 -E "^#\s+" "$INPUT" | sed -E "s/^#\s+//" | head -c 60)
-  [[ -z "$TITLE" ]] && TITLE="$(basename "${INPUT%.*}")"
+  # 原文可能没有 `# 标题`（书籍章节常以"我不好，我不行，我不能"等无 # 句开头），
+  # grep 无匹配会 exit 1；|| true 阻止 set -e 触发整体静默退出。
+  TITLE=$(grep -m1 -E "^#\s+" "$INPUT" 2>/dev/null | sed -E "s/^#\s+//" | head -c 60 || true)
+  if [[ -z "$TITLE" ]]; then
+    # fallback：stdin 走临时文件时 basename 会拿到 mktemp 模板字面量（BSD mktemp
+    # 只替换最后一段 X，所以路径里仍有 chapter-XXXXXX.md.<rand>），
+    # 此时改用第一行内容作标题（去标点 + trim）—— 至少比 "chapter-XXXXXX" 像话。
+    if [[ "$ORIGINAL_INPUT" = "-" ]] || [[ ! -f "$ORIGINAL_INPUT" ]]; then
+      TITLE=$(head -1 "$INPUT" | sed -E 's/[\s。.,，！？!?；;]+$//' | head -c 60)
+    else
+      TITLE="$(basename "${ORIGINAL_INPUT%.*}")"
+    fi
+    [[ -z "$TITLE" ]] && TITLE="untitled"
+  fi
 fi
 # ── 写 brief.md（profile + flag 覆盖合成）──
 BRIEF_STR=""
